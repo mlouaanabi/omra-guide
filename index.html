@@ -258,8 +258,32 @@
               <>
                 <div className="flex gap-2">
                   <input type="text" placeholder="🔍 Rechercher..." value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} className="flex-1 px-3 py-2 border rounded-xl text-sm" />
+                  <button onClick={()=>setShowFilters(!showFilters)} className={`px-3 py-2 rounded-xl text-sm ${showFilters ? 'bg-green-600 text-white' : 'bg-gray-200'}`}>🔽</button>
                   <button onClick={()=>{setEditingId(null);setView('form');}} className="bg-green-600 text-white px-4 rounded-xl text-xl">+</button>
                 </div>
+                
+                {showFilters && (
+                  <div className="bg-white rounded-xl p-3 shadow-sm space-y-2">
+                    <p className="font-bold text-sm">🔍 Filtres avancés</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input type="text" placeholder="N° Chambre" value={filters.chambre} onChange={e=>setFilters({...filters, chambre:e.target.value})} className="border rounded-lg px-2 py-1.5 text-sm" />
+                      <select value={filters.sexe} onChange={e=>setFilters({...filters, sexe:e.target.value})} className="border rounded-lg px-2 py-1.5 text-sm">
+                        <option value="">Tous sexes</option>
+                        <option value="M">Homme ♂</option>
+                        <option value="F">Femme ♀</option>
+                      </select>
+                      <input type="number" placeholder="Âge min" value={filters.ageMin} onChange={e=>setFilters({...filters, ageMin:e.target.value})} className="border rounded-lg px-2 py-1.5 text-sm" />
+                      <input type="number" placeholder="Âge max" value={filters.ageMax} onChange={e=>setFilters({...filters, ageMax:e.target.value})} className="border rounded-lg px-2 py-1.5 text-sm" />
+                      <select value={filters.hotel} onChange={e=>setFilters({...filters, hotel:e.target.value})} className="border rounded-lg px-2 py-1.5 text-sm">
+                        <option value="">Tous hôtels</option>
+                        {[...hotels.medine, ...hotels.makkah].map(h=><option key={h}>{h}</option>)}
+                      </select>
+                      <button onClick={()=>setFilters({chambre:'',sexe:'',ageMin:'',ageMax:'',hotel:''})} className="bg-gray-200 rounded-lg px-2 py-1.5 text-sm">Réinitialiser</button>
+                    </div>
+                    <p className="text-xs text-gray-500">{filtered.length} résultat(s) sur {pelerins.length}</p>
+                  </div>
+                )}
+                
                 <div className="space-y-2">
                   {filtered.map(p => {
                     const age = getAge(p.dateNaissance);
