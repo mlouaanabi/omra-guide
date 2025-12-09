@@ -1,0 +1,18 @@
+{
+  "name": "Gestion Pèlerins Omra",
+  "short_name": "Omra Guide",
+  "description": "Application de gestion des pèlerins pour Omra",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f3f4f6",
+  "theme_color": "#16a34a",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://em-content.zobj.net/source/apple/391/kaaba_1f54b.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
