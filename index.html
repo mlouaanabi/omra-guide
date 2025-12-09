@@ -64,6 +64,8 @@
         if(h) setHotels(h);
         const g = storage.get('guide-number');
         if(g) setGuideNumber(g);
+        const u = storage.get('urgence-numbers');
+        if(u) setUrgenceNumbers(u);
       }, []);
 
       useEffect(() => { lucide.createIcons(); });
@@ -71,6 +73,9 @@
       const saveData = (data) => { storage.set('pelerins-data', data); };
       const saveHotels = (data) => { storage.set('hotels-data', data); };
       const saveGuide = (num) => { storage.set('guide-number', num); };
+  const saveUrgence = (data) => { storage.set('urgence-numbers', data); setUrgenceNumbers(data); };
+  
+  const callNumber = (num) => { if(num) window.location.href = 'tel:' + num.replace(/\s/g, ''); };
 
       const addHotel = () => {
         if(!newHotel.nom.trim()) return;
@@ -344,6 +349,15 @@
             <Nav label="Familles" v="familles" emoji="👨‍👩‍👧" />
           </div>
 
+          {/* Bouton SOS Flottant */}
+          <button 
+            onClick={()=>setSosModal(true)} 
+            className="fixed bottom-20 right-4 w-14 h-14 bg-red-600 hover:bg-red-700 text-white rounded-full shadow-lg flex items-center justify-center text-2xl z-40 animate-pulse"
+            style={{boxShadow: '0 0 20px rgba(220,38,38,0.5)'}}
+          >
+            🆘
+          </button>
+
           {/* Modals */}
           {importModal && <Modal onClose={()=>setImportModal(false)} title="📥 Importer"><label className="block w-full bg-green-600 text-white py-3 rounded-xl text-center text-sm">📁 Sélectionner fichier<input type="file" accept=".csv,.xlsx,.xls" onChange={e=>{if(e.target.files[0])handleFile(e.target.files[0]);}} className="hidden" /></label><p className="text-center text-xs text-gray-500 mt-2">CSV ou Excel</p></Modal>}
 
@@ -352,6 +366,77 @@
           {guideModal && <Modal onClose={()=>setGuideModal(false)} title="📱 Numéro guide"><input placeholder="+33 6 12 34 56 78" value={guideNumber} onChange={e=>setGuideNumber(e.target.value)} className="w-full border rounded-xl px-3 py-2 mb-3 text-sm" /><button onClick={()=>{saveGuide(guideNumber);setGuideModal(false);}} className="w-full bg-green-600 text-white py-2 rounded-xl text-sm">Enregistrer</button></Modal>}
 
           {positionModal && <Modal onClose={()=>setPositionModal(false)} title="📌 Demander position"><div className="max-h-64 overflow-y-auto space-y-2">{pelerins.filter(p=>p.whatsapp).map(p=><button key={p.id} onClick={()=>{askPosition(p);setPositionModal(false);}} className="w-full flex items-center gap-3 p-2 bg-gray-50 rounded-lg text-left"><div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs ${p.sexe==='F'?'bg-pink-500':'bg-blue-500'}`}>{p.prenom?.[0]}{p.nom?.[0]}</div><span className="text-sm">{p.prenom} {p.nom}</span></button>)}</div>{!pelerins.filter(p=>p.whatsapp).length&&<p className="text-center text-gray-400 py-4 text-sm">Aucun contact</p>}</Modal>}
+
+          {/* Modal SOS */}
+          {sosModal && (
+            <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={()=>setSosModal(false)}>
+              <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden" onClick={e=>e.stopPropagation()}>
+                <div className="bg-red-600 text-white p-4 text-center">
+                  <span className="text-3xl">🆘</span>
+                  <h2 className="text-xl font-bold mt-1">URGENCES</h2>
+                </div>
+                <div className="p-4 space-y-2">
+                  {/* Numéros officiels Arabie Saoudite */}
+                  <p className="font-bold text-sm text-gray-600 mb-2">🇸🇦 Numéros officiels</p>
+                  <button onClick={()=>callNumber('911')} className="w-full flex items-center justify-between bg-red-50 border-2 border-red-200 rounded-xl p-3 hover:bg-red-100">
+                    <div className="flex items-center gap-3"><span className="text-2xl">🚨</span><div className="text-left"><p className="font-bold text-red-700">Urgences générales</p><p className="text-xs text-gray-500">Police, Ambulance, Pompiers</p></div></div>
+                    <span className="font-bold text-red-600">911</span>
+                  </button>
+                  <button onClick={()=>callNumber('997')} className="w-full flex items-center justify-between bg-orange-50 border-2 border-orange-200 rounded-xl p-3 hover:bg-orange-100">
+                    <div className="flex items-center gap-3"><span className="text-2xl">🚑</span><div className="text-left"><p className="font-bold text-orange-700">SAMU / Ambulance</p><p className="text-xs text-gray-500">Urgences médicales</p></div></div>
+                    <span className="font-bold text-orange-600">997</span>
+                  </button>
+                  <button onClick={()=>callNumber('999')} className="w-full flex items-center justify-between bg-blue-50 border-2 border-blue-200 rounded-xl p-3 hover:bg-blue-100">
+                    <div className="flex items-center gap-3"><span className="text-2xl">👮</span><div className="text-left"><p className="font-bold text-blue-700">Police</p><p className="text-xs text-gray-500">Sécurité</p></div></div>
+                    <span className="font-bold text-blue-600">999</span>
+                  </button>
+                  
+                  {/* Numéros personnalisés */}
+                  <p className="font-bold text-sm text-gray-600 mt-4 mb-2">📱 Mes contacts</p>
+                  
+                  {urgenceNumbers.consulat ? (
+                    <button onClick={()=>callNumber(urgenceNumbers.consulat)} className="w-full flex items-center justify-between bg-purple-50 border-2 border-purple-200 rounded-xl p-3 hover:bg-purple-100">
+                      <div className="flex items-center gap-3"><span className="text-2xl">🏛️</span><p className="font-bold text-purple-700">Consulat France</p></div>
+                      <span className="font-bold text-purple-600 text-sm">{urgenceNumbers.consulat}</span>
+                    </button>
+                  ) : null}
+                  
+                  {urgenceNumbers.agence ? (
+                    <button onClick={()=>callNumber(urgenceNumbers.agence)} className="w-full flex items-center justify-between bg-green-50 border-2 border-green-200 rounded-xl p-3 hover:bg-green-100">
+                      <div className="flex items-center gap-3"><span className="text-2xl">🏢</span><p className="font-bold text-green-700">Agence voyage</p></div>
+                      <span className="font-bold text-green-600 text-sm">{urgenceNumbers.agence}</span>
+                    </button>
+                  ) : null}
+                  
+                  {urgenceNumbers.hotel_medine ? (
+                    <button onClick={()=>callNumber(urgenceNumbers.hotel_medine)} className="w-full flex items-center justify-between bg-blue-50 border-2 border-blue-200 rounded-xl p-3 hover:bg-blue-100">
+                      <div className="flex items-center gap-3"><span className="text-2xl">🏨</span><p className="font-bold text-blue-700">Hôtel Médine</p></div>
+                      <span className="font-bold text-blue-600 text-sm">{urgenceNumbers.hotel_medine}</span>
+                    </button>
+                  ) : null}
+                  
+                  {urgenceNumbers.hotel_makkah ? (
+                    <button onClick={()=>callNumber(urgenceNumbers.hotel_makkah)} className="w-full flex items-center justify-between bg-green-50 border-2 border-green-200 rounded-xl p-3 hover:bg-green-100">
+                      <div className="flex items-center gap-3"><span className="text-2xl">🏨</span><p className="font-bold text-green-700">Hôtel Makkah</p></div>
+                      <span className="font-bold text-green-600 text-sm">{urgenceNumbers.hotel_makkah}</span>
+                    </button>
+                  ) : null}
+                  
+                  {urgenceNumbers.responsable ? (
+                    <button onClick={()=>callNumber(urgenceNumbers.responsable)} className="w-full flex items-center justify-between bg-amber-50 border-2 border-amber-200 rounded-xl p-3 hover:bg-amber-100">
+                      <div className="flex items-center gap-3"><span className="text-2xl">👤</span><p className="font-bold text-amber-700">Responsable</p></div>
+                      <span className="font-bold text-amber-600 text-sm">{urgenceNumbers.responsable}</span>
+                    </button>
+                  ) : null}
+                  
+                  <button onClick={()=>{setSosModal(false);setUrgenceModal(true);}} className="w-full mt-3 bg-gray-100 text-gray-700 py-2 rounded-xl text-sm font-medium">
+                    ⚙️ Configurer mes numéros
+                  </button>
+                </div>
+                <button onClick={()=>setSosModal(false)} className="w-full bg-gray-200 py-3 font-medium">Fermer</button>
+              </div>
+            </div>
+          )}
         </div>
       );
     }
