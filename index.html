@@ -52,6 +52,7 @@ function App(){
   const [sayiCount,setSayiCount]=useState(0);
   const [spirituelTab,setSpirituelTab]=useState('guide');
   const [printModal,setPrintModal]=useState(false);
+  const [villeChambres,setVilleChambres]=useState('medine');
 
   useEffect(()=>{
     const p=storage.get('pelerins');if(p)setPelerins(p);
@@ -313,6 +314,82 @@ function App(){
           {!filtered.length&&<div className="text-center py-10 text-gray-400">Aucun pèlerin</div>}
         </>}
 
+        {view==='chambres'&&<>
+          <div className="flex justify-between items-center mb-4">
+            <div className="font-bold">🏨 Chambres</div>
+            <div className="flex gap-2">
+              <button onClick={()=>setVilleChambres('medine')} className={`px-4 py-2 rounded-xl text-sm ${villeChambres==='medine'?'bg-blue-600 text-white':'bg-gray-200'}`}>Médine</button>
+              <button onClick={()=>setVilleChambres('makkah')} className={`px-4 py-2 rounded-xl text-sm ${villeChambres==='makkah'?'bg-green-600 text-white':'bg-gray-200'}`}>Makkah</button>
+            </div>
+          </div>
+          {(()=>{
+            const chambreField=villeChambres==='medine'?'chambreMedine':'chambreMakkah';
+            const typeField=villeChambres==='medine'?'typeChambreMedine':'typeChambreMakkah';
+            const hotelField=villeChambres==='medine'?'hotelMedine':'hotelMakkah';
+            const chambres={};
+            pelerins.filter(p=>p[chambreField]).forEach(p=>{
+              const num=p[chambreField];
+              if(!chambres[num])chambres[num]={type:p[typeField]||'',hotel:p[hotelField]||'',occupants:[]};
+              chambres[num].occupants.push(p);
+            });
+            const nums=Object.keys(chambres).sort((a,b)=>parseInt(a)-parseInt(b));
+            const getCap=t=>t==='Duo'?2:t==='Triple'?3:t==='Quadruple'?4:4;
+            
+            if(!nums.length)return<div className="text-center py-10 text-gray-400">Aucune chambre attribuée</div>;
+            
+            // Stats
+            let totalPlaces=0,totalOcc=0;
+            nums.forEach(n=>{const c=chambres[n];totalPlaces+=getCap(c.type);totalOcc+=c.occupants.length});
+            const taux=totalPlaces>0?Math.round((totalOcc/totalPlaces)*100):0;
+            
+            return<>
+              <div className="bg-white rounded-xl p-4 shadow-sm mb-4">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm">Taux de remplissage</span>
+                  <span className="font-bold text-lg">{taux}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-3">
+                  <div className={`h-3 rounded-full ${villeChambres==='medine'?'bg-blue-500':'bg-green-500'}`} style={{width:taux+'%'}}></div>
+                </div>
+                <div className="text-xs text-gray-500 mt-1">{totalOcc}/{totalPlaces} places • {nums.length} chambres</div>
+              </div>
+              <div className="space-y-3">
+                {nums.map(num=>{
+                  const ch=chambres[num];
+                  const cap=getCap(ch.type);
+                  const isFull=ch.occupants.length>=cap;
+                  return<div key={num} className={`bg-white rounded-xl shadow-sm overflow-hidden border-2 ${isFull?'border-green-500':'border-orange-400'}`}>
+                    <div className={`px-4 py-2 flex justify-between items-center ${isFull?'bg-green-50':'bg-orange-50'}`}>
+                      <div>
+                        <span className="font-bold">Chambre {num}</span>
+                        {ch.hotel&&<span className="text-xs text-gray-500 ml-2">({ch.hotel})</span>}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs">{ch.type||'?'}</span>
+                        <span className={`text-xs px-2 py-1 rounded-full ${isFull?'bg-green-200 text-green-800':'bg-orange-200 text-orange-800'}`}>
+                          {ch.occupants.length}/{cap}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="p-3 space-y-2">
+                      {ch.occupants.map(p=><div key={p.id} className="flex items-center justify-between bg-gray-50 rounded-lg p-2">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold ${p.sexe==='F'?'bg-pink-500':'bg-blue-500'}`}>{p.prenom?.[0]}{p.nom?.[0]}</div>
+                          <div>
+                            <div className="text-sm font-medium">{p.prenom} {p.nom}</div>
+                            {p.commentaire&&<div className="text-xs text-orange-600">⚠️ {p.commentaire}</div>}
+                          </div>
+                        </div>
+                        <button onClick={()=>{setEditId(p.id);setView('form')}} className="text-blue-600 p-1">✏️</button>
+                      </div>)}
+                    </div>
+                  </div>
+                })}
+              </div>
+            </>;
+          })()}
+        </>}
+
         {view==='form'&&<Form p={editId?pelerins.find(x=>x.id===editId):null} hotels={hotels} onSave={d=>{save(editId?pelerins.map(x=>x.id===editId?{...d,id:editId}:x):[...pelerins,{...d,id:Date.now()}]);setView('list')}} onCancel={()=>setView('list')}/>}
 
         {view==='appel'&&<>
@@ -439,7 +516,7 @@ function App(){
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t flex z-30">
-        {[['🏠','dashboard'],['👥','list'],['✅','appel'],['🤲','spirituel'],['👨‍👩‍👧','familles']].map(([e,v])=><button key={v} onClick={()=>setView(v)} className={`flex-1 py-3 text-sm ${view===v?'text-green-600 border-t-2 border-green-600':'text-gray-500'}`}>{e}</button>)}
+        {[['🏠','dashboard'],['👥','list'],['🏨','chambres'],['✅','appel'],['🤲','spirituel'],['👨‍👩‍👧','familles']].map(([e,v])=><button key={v} onClick={()=>setView(v)} className={`flex-1 py-3 text-sm ${view===v?'text-green-600 border-t-2 border-green-600':'text-gray-500'}`}>{e}</button>)}
       </div>
 
       <button onClick={()=>setModal('sos')} className="sos-btn fixed bottom-20 right-4 w-14 h-14 bg-red-600 text-white rounded-full shadow-lg flex items-center justify-center text-2xl z-40">🆘</button>
@@ -511,7 +588,7 @@ function App(){
 }
 
 function Form({p,hotels,onSave,onCancel}){
-  const [f,setF]=useState({nom:p?.nom||'',prenom:p?.prenom||'',sexe:p?.sexe||'',dateNaissance:p?.dateNaissance||'',nomFamille:p?.nomFamille||'',lienFamilial:p?.lienFamilial||'',whatsapp:p?.whatsapp||'',chambreMedine:p?.chambreMedine||'',chambreMakkah:p?.chambreMakkah||'',hotelMedine:p?.hotelMedine||'',hotelMakkah:p?.hotelMakkah||'',commentaire:p?.commentaire||''});
+  const [f,setF]=useState({nom:p?.nom||'',prenom:p?.prenom||'',sexe:p?.sexe||'',dateNaissance:p?.dateNaissance||'',nomFamille:p?.nomFamille||'',lienFamilial:p?.lienFamilial||'',whatsapp:p?.whatsapp||'',chambreMedine:p?.chambreMedine||'',typeChambreMedine:p?.typeChambreMedine||'',hotelMedine:p?.hotelMedine||'',chambreMakkah:p?.chambreMakkah||'',typeChambreMakkah:p?.typeChambreMakkah||'',hotelMakkah:p?.hotelMakkah||'',commentaire:p?.commentaire||''});
   return(
     <div className="bg-white rounded-xl p-4 shadow-sm">
       <div className="font-bold mb-4">{p?'✏️ Modifier':'➕ Ajouter'}</div>
@@ -520,7 +597,21 @@ function Form({p,hotels,onSave,onCancel}){
         <div className="grid grid-cols-2 gap-2"><select value={f.sexe} onChange={e=>setF({...f,sexe:e.target.value})} className="border rounded-xl px-3 py-2"><option value="">Sexe</option><option value="M">Homme</option><option value="F">Femme</option></select><input type="date" value={f.dateNaissance} onChange={e=>setF({...f,dateNaissance:e.target.value})} className="border rounded-xl px-3 py-2"/></div>
         <div className="grid grid-cols-2 gap-2"><input placeholder="Famille" value={f.nomFamille} onChange={e=>setF({...f,nomFamille:e.target.value})} className="border rounded-xl px-3 py-2"/><select value={f.lienFamilial} onChange={e=>setF({...f,lienFamilial:e.target.value})} className="border rounded-xl px-3 py-2"><option value="">Lien</option><option>Époux</option><option>Épouse</option><option>Père</option><option>Mère</option><option>Fils</option><option>Fille</option></select></div>
         <input placeholder="WhatsApp" value={f.whatsapp} onChange={e=>setF({...f,whatsapp:e.target.value})} className="w-full border rounded-xl px-3 py-2"/>
-        <div className="grid grid-cols-2 gap-2"><input placeholder="Chambre Médine" value={f.chambreMedine} onChange={e=>setF({...f,chambreMedine:e.target.value})} className="border rounded-xl px-3 py-2"/><input placeholder="Chambre Makkah" value={f.chambreMakkah} onChange={e=>setF({...f,chambreMakkah:e.target.value})} className="border rounded-xl px-3 py-2"/></div>
+        
+        <div className="font-bold text-sm pt-2">🏨 Médine</div>
+        <div className="grid grid-cols-3 gap-2">
+          <input placeholder="Hôtel" value={f.hotelMedine} onChange={e=>setF({...f,hotelMedine:e.target.value})} className="border rounded-xl px-3 py-2"/>
+          <input placeholder="N° Chambre" value={f.chambreMedine} onChange={e=>setF({...f,chambreMedine:e.target.value})} className="border rounded-xl px-3 py-2"/>
+          <select value={f.typeChambreMedine} onChange={e=>setF({...f,typeChambreMedine:e.target.value})} className="border rounded-xl px-3 py-2"><option value="">Type</option><option>Duo</option><option>Triple</option><option>Quadruple</option></select>
+        </div>
+        
+        <div className="font-bold text-sm pt-2">🕋 Makkah</div>
+        <div className="grid grid-cols-3 gap-2">
+          <input placeholder="Hôtel" value={f.hotelMakkah} onChange={e=>setF({...f,hotelMakkah:e.target.value})} className="border rounded-xl px-3 py-2"/>
+          <input placeholder="N° Chambre" value={f.chambreMakkah} onChange={e=>setF({...f,chambreMakkah:e.target.value})} className="border rounded-xl px-3 py-2"/>
+          <select value={f.typeChambreMakkah} onChange={e=>setF({...f,typeChambreMakkah:e.target.value})} className="border rounded-xl px-3 py-2"><option value="">Type</option><option>Duo</option><option>Triple</option><option>Quadruple</option></select>
+        </div>
+        
         <textarea placeholder="Commentaire santé" value={f.commentaire} onChange={e=>setF({...f,commentaire:e.target.value})} className="w-full border rounded-xl px-3 py-2" rows={2}/>
       </div>
       <div className="flex gap-3 mt-4"><button onClick={onCancel} className="flex-1 border py-2 rounded-xl">Annuler</button><button onClick={()=>{if(!f.nom||!f.prenom){alert('Nom et prénom requis');return}onSave(f)}} className="flex-1 bg-green-600 text-white py-2 rounded-xl">💾 Sauver</button></div>
