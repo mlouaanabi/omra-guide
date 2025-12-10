@@ -46,6 +46,9 @@ function App(){
   const [modal,setModal]=useState(null);
   const [urgence,setUrgence]=useState({consulat:'',agence:'',hotelMed:'',hotelMak:'',autre:''});
   const [darkMode,setDarkMode]=useState(false);
+  const [tawafCount,setTawafCount]=useState(0);
+  const [sayiCount,setSayiCount]=useState(0);
+  const [spirituelTab,setSpirituelTab]=useState('guide');
 
   useEffect(()=>{
     const p=storage.get('pelerins');if(p)setPelerins(p);
@@ -174,10 +177,118 @@ function App(){
           <div className="font-bold">👨‍👩‍👧 Familles ({familles.length})</div>
           {familles.map(f=>{const m=pelerins.filter(p=>p.nomFamille===f);return<div key={f} className="bg-white rounded-xl shadow-sm overflow-hidden mb-3"><div className="bg-purple-600 text-white px-4 py-2 font-bold">Famille {f} ({m.length})</div><div className="p-3">{m.map(x=><div key={x.id} className="flex items-center gap-2 py-1"><div className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center text-white text-xs">{x.prenom?.[0]}</div><span className="text-sm">{x.prenom} {x.nom}</span>{x.lienFamilial&&<span className="text-xs text-gray-500">({x.lienFamilial})</span>}</div>)}</div></div>})}
         </>}
+
+        {view==='spirituel'&&<>
+          <div className="flex gap-2 mb-4">
+            <button onClick={()=>setSpirituelTab('guide')} className={`flex-1 py-2 rounded-xl text-sm font-medium ${spirituelTab==='guide'?'bg-green-600 text-white':'bg-white'}`}>📖 Guide</button>
+            <button onClick={()=>setSpirituelTab('duas')} className={`flex-1 py-2 rounded-xl text-sm font-medium ${spirituelTab==='duas'?'bg-green-600 text-white':'bg-white'}`}>🤲 Duas</button>
+            <button onClick={()=>setSpirituelTab('compteur')} className={`flex-1 py-2 rounded-xl text-sm font-medium ${spirituelTab==='compteur'?'bg-green-600 text-white':'bg-white'}`}>🔢 Compteur</button>
+          </div>
+
+          {spirituelTab==='guide'&&<div className="space-y-3">
+            <div className="bg-white rounded-xl p-4 shadow-sm">
+              <div className="text-lg font-bold mb-3">🕋 Les étapes de la Omra</div>
+              <div className="space-y-4">
+                <div className="border-l-4 border-green-500 pl-3">
+                  <div className="font-bold text-green-700">1. Ihram (الإحرام)</div>
+                  <p className="text-sm text-gray-600">Entrer en état de sacralisation au Miqat. Porter les vêtements blancs (hommes). Formuler l'intention et réciter la Talbiya.</p>
+                </div>
+                <div className="border-l-4 border-blue-500 pl-3">
+                  <div className="font-bold text-blue-700">2. Tawaf (الطواف)</div>
+                  <p className="text-sm text-gray-600">Effectuer 7 tours autour de la Kaaba dans le sens inverse des aiguilles d'une montre. Commencer à la pierre noire.</p>
+                </div>
+                <div className="border-l-4 border-purple-500 pl-3">
+                  <div className="font-bold text-purple-700">3. Prière 2 Rak'at</div>
+                  <p className="text-sm text-gray-600">Prier 2 unités derrière le Maqam Ibrahim si possible, sinon n'importe où dans la mosquée.</p>
+                </div>
+                <div className="border-l-4 border-amber-500 pl-3">
+                  <div className="font-bold text-amber-700">4. Sa'i (السعي)</div>
+                  <p className="text-sm text-gray-600">Parcourir 7 fois entre Safa et Marwa. Commencer à Safa, finir à Marwa.</p>
+                </div>
+                <div className="border-l-4 border-pink-500 pl-3">
+                  <div className="font-bold text-pink-700">5. Halq/Taqsir</div>
+                  <p className="text-sm text-gray-600">Se raser la tête (Halq) ou raccourcir les cheveux (Taqsir). Les femmes coupent une mèche.</p>
+                </div>
+              </div>
+            </div>
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+              <div className="font-bold text-amber-800 mb-2">📌 Rappels importants</div>
+              <ul className="text-sm text-amber-700 space-y-1">
+                <li>• Rester en état de pureté (Wudu)</li>
+                <li>• Éviter les interdits de l'Ihram</li>
+                <li>• Multiplier les invocations</li>
+                <li>• Boire l'eau de Zamzam</li>
+              </ul>
+            </div>
+          </div>}
+
+          {spirituelTab==='duas'&&<div className="space-y-3">
+            <div className="bg-white rounded-xl p-4 shadow-sm">
+              <div className="font-bold text-green-700 mb-2">📿 Talbiya</div>
+              <div className="bg-green-50 rounded-lg p-3 text-right text-lg mb-2" dir="rtl">لَبَّيْكَ اللَّهُمَّ لَبَّيْكَ، لَبَّيْكَ لَا شَرِيكَ لَكَ لَبَّيْكَ، إِنَّ الْحَمْدَ وَالنِّعْمَةَ لَكَ وَالْمُلْكَ، لَا شَرِيكَ لَكَ</div>
+              <p className="text-sm text-gray-600">Labbayk Allahumma labbayk, labbayka la sharika laka labbayk. Innal-hamda wan-ni'mata laka wal-mulk, la sharika lak.</p>
+            </div>
+            <div className="bg-white rounded-xl p-4 shadow-sm">
+              <div className="font-bold text-blue-700 mb-2">🕋 En voyant la Kaaba</div>
+              <div className="bg-blue-50 rounded-lg p-3 text-right text-lg mb-2" dir="rtl">اللَّهُمَّ زِدْ هَذَا الْبَيْتَ تَشْرِيفًا وَتَعْظِيمًا وَتَكْرِيمًا وَمَهَابَةً</div>
+              <p className="text-sm text-gray-600">Allahumma zid hadhal-bayta tashrifan wa ta'dhiman wa takriman wa mahabah.</p>
+            </div>
+            <div className="bg-white rounded-xl p-4 shadow-sm">
+              <div className="font-bold text-purple-700 mb-2">⚫ À la pierre noire</div>
+              <div className="bg-purple-50 rounded-lg p-3 text-right text-lg mb-2" dir="rtl">بِسْمِ اللَّهِ وَاللَّهُ أَكْبَرُ</div>
+              <p className="text-sm text-gray-600">Bismillahi wallahu akbar</p>
+            </div>
+            <div className="bg-white rounded-xl p-4 shadow-sm">
+              <div className="font-bold text-amber-700 mb-2">🏔️ À Safa et Marwa</div>
+              <div className="bg-amber-50 rounded-lg p-3 text-right text-lg mb-2" dir="rtl">إِنَّ الصَّفَا وَالْمَرْوَةَ مِنْ شَعَائِرِ اللَّهِ</div>
+              <p className="text-sm text-gray-600">Innas-Safa wal-Marwata min sha'a'irillah</p>
+            </div>
+            <div className="bg-white rounded-xl p-4 shadow-sm">
+              <div className="font-bold text-pink-700 mb-2">🤲 Invocation générale</div>
+              <div className="bg-pink-50 rounded-lg p-3 text-right text-lg mb-2" dir="rtl">رَبَّنَا آتِنَا فِي الدُّنْيَا حَسَنَةً وَفِي الْآخِرَةِ حَسَنَةً وَقِنَا عَذَابَ النَّارِ</div>
+              <p className="text-sm text-gray-600">Rabbana atina fid-dunya hasanatan wa fil-akhirati hasanatan wa qina 'adhaban-nar.</p>
+            </div>
+          </div>}
+
+          {spirituelTab==='compteur'&&<div className="space-y-4">
+            <div className="bg-white rounded-xl p-6 shadow-sm text-center">
+              <div className="text-6xl mb-2">🕋</div>
+              <div className="font-bold text-xl mb-1">Tawaf</div>
+              <div className="text-sm text-gray-500 mb-4">Tours autour de la Kaaba</div>
+              <div className="text-6xl font-bold text-green-600 mb-4">{tawafCount}<span className="text-2xl text-gray-400">/7</span></div>
+              <div className="flex gap-2 justify-center mb-4">
+                {[1,2,3,4,5,6,7].map(n=><div key={n} className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${n<=tawafCount?'bg-green-500 text-white':'bg-gray-200'}`}>{n}</div>)}
+              </div>
+              <div className="flex gap-3 justify-center">
+                <button onClick={()=>setTawafCount(Math.max(0,tawafCount-1))} className="bg-red-100 text-red-600 px-6 py-3 rounded-xl font-bold text-xl">−</button>
+                <button onClick={()=>setTawafCount(Math.min(7,tawafCount+1))} className="bg-green-600 text-white px-6 py-3 rounded-xl font-bold text-xl">+</button>
+              </div>
+              <button onClick={()=>setTawafCount(0)} className="mt-3 text-sm text-gray-500">Réinitialiser</button>
+              {tawafCount===7&&<div className="mt-4 bg-green-100 text-green-700 py-2 rounded-xl font-bold">✅ Tawaf terminé ! Alhamdulillah</div>}
+            </div>
+
+            <div className="bg-white rounded-xl p-6 shadow-sm text-center">
+              <div className="text-6xl mb-2">🏃</div>
+              <div className="font-bold text-xl mb-1">Sa'i</div>
+              <div className="text-sm text-gray-500 mb-4">Parcours Safa ↔ Marwa</div>
+              <div className="text-6xl font-bold text-blue-600 mb-4">{sayiCount}<span className="text-2xl text-gray-400">/7</span></div>
+              <div className="flex gap-2 justify-center mb-2">
+                {[1,2,3,4,5,6,7].map(n=><div key={n} className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${n<=sayiCount?'bg-blue-500 text-white':'bg-gray-200'}`}>{n}</div>)}
+              </div>
+              <div className="text-xs text-gray-500 mb-4">{sayiCount===0?'Départ: Safa':sayiCount%2===1?'→ Marwa':'→ Safa'}</div>
+              <div className="flex gap-3 justify-center">
+                <button onClick={()=>setSayiCount(Math.max(0,sayiCount-1))} className="bg-red-100 text-red-600 px-6 py-3 rounded-xl font-bold text-xl">−</button>
+                <button onClick={()=>setSayiCount(Math.min(7,sayiCount+1))} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold text-xl">+</button>
+              </div>
+              <button onClick={()=>setSayiCount(0)} className="mt-3 text-sm text-gray-500">Réinitialiser</button>
+              {sayiCount===7&&<div className="mt-4 bg-blue-100 text-blue-700 py-2 rounded-xl font-bold">✅ Sa'i terminé ! Alhamdulillah</div>}
+            </div>
+          </div>}
+        </>}
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t flex z-30">
-        {[['🏠','dashboard'],['👥','list'],['✅','appel'],['👨‍👩‍👧','familles']].map(([e,v])=><button key={v} onClick={()=>setView(v)} className={`flex-1 py-3 ${view===v?'text-green-600 border-t-2 border-green-600':'text-gray-500'}`}>{e}</button>)}
+        {[['🏠','dashboard'],['👥','list'],['✅','appel'],['🤲','spirituel'],['👨‍👩‍👧','familles']].map(([e,v])=><button key={v} onClick={()=>setView(v)} className={`flex-1 py-3 text-sm ${view===v?'text-green-600 border-t-2 border-green-600':'text-gray-500'}`}>{e}</button>)}
       </div>
 
       <button onClick={()=>setModal('sos')} className="sos-btn fixed bottom-20 right-4 w-14 h-14 bg-red-600 text-white rounded-full shadow-lg flex items-center justify-center text-2xl z-40">🆘</button>
