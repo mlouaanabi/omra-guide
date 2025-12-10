@@ -13,6 +13,8 @@
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
   <style>body{font-family:system-ui,sans-serif}@keyframes sos{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}.sos-btn{animation:sos 1s infinite}
 .dark{background:#111827!important;color:#f3f4f6}
 .dark .bg-white{background:#1f2937!important}
@@ -49,6 +51,7 @@ function App(){
   const [tawafCount,setTawafCount]=useState(0);
   const [sayiCount,setSayiCount]=useState(0);
   const [spirituelTab,setSpirituelTab]=useState('guide');
+  const [printModal,setPrintModal]=useState(false);
 
   useEffect(()=>{
     const p=storage.get('pelerins');if(p)setPelerins(p);
@@ -88,6 +91,153 @@ function App(){
     const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(d),"Pelerins");XLSX.writeFile(wb,'pelerins.xlsx');
   };
 
+  // PDF Liste d'appel
+  const printListeAppel=()=>{
+    const {jsPDF}=window.jspdf;
+    const doc=new jsPDF();
+    doc.setFontSize(18);
+    doc.text('Liste d\'appel - Omra',105,15,{align:'center'});
+    doc.setFontSize(10);
+    doc.text('Date: '+new Date().toLocaleDateString('fr-FR'),105,22,{align:'center'});
+    
+    const data=pelerins.map((p,i)=>[i+1,p.nom?.toUpperCase(),p.prenom,p.sexe==='F'?'F':'M',p.nomFamille||'-','☐']);
+    doc.autoTable({
+      head:[['N°','NOM','Prénom','S','Famille','✓']],
+      body:data,
+      startY:30,
+      styles:{fontSize:9,cellPadding:3},
+      headStyles:{fillColor:[22,163,74]},
+      columnStyles:{0:{cellWidth:10},4:{cellWidth:30},5:{cellWidth:12,halign:'center'}}
+    });
+    doc.save('liste_appel_omra.pdf');
+  };
+
+  // PDF Rooming List
+  const printRoomingList=(ville)=>{
+    const {jsPDF}=window.jspdf;
+    const doc=new jsPDF();
+    doc.setFontSize(18);
+    doc.text('Rooming List - '+(ville==='medine'?'Médine':'Makkah'),105,15,{align:'center'});
+    doc.setFontSize(10);
+    doc.text('Date: '+new Date().toLocaleDateString('fr-FR'),105,22,{align:'center'});
+    
+    const chambreField=ville==='medine'?'chambreMedine':'chambreMakkah';
+    const hotelField=ville==='medine'?'hotelMedine':'hotelMakkah';
+    
+    const chambres={};
+    pelerins.filter(p=>p[chambreField]).forEach(p=>{
+      const num=p[chambreField];
+      if(!chambres[num])chambres[num]={hotel:p[hotelField]||'-',occupants:[]};
+      chambres[num].occupants.push(p);
+    });
+    
+    const data=[];
+    Object.keys(chambres).sort((a,b)=>parseInt(a)-parseInt(b)).forEach(num=>{
+      const ch=chambres[num];
+      ch.occupants.forEach((p,i)=>{
+        data.push([i===0?num:'',i===0?ch.hotel:'',p.nom?.toUpperCase()+' '+p.prenom,p.sexe==='F'?'F':'M',p.whatsapp||'-']);
+      });
+    });
+    
+    doc.autoTable({
+      head:[['Ch.','Hôtel','Nom Prénom','S','WhatsApp']],
+      body:data,
+      startY:30,
+      styles:{fontSize:9,cellPadding:3},
+      headStyles:{fillColor:[22,163,74]},
+      columnStyles:{0:{cellWidth:15},1:{cellWidth:35},3:{cellWidth:10}}
+    });
+    doc.save('rooming_list_'+ville+'.pdf');
+  };
+
+  // PDF Fiche par chambre
+  const printFicheChambres=(ville)=>{
+    const {jsPDF}=window.jspdf;
+    const doc=new jsPDF();
+    
+    const chambreField=ville==='medine'?'chambreMedine':'chambreMakkah';
+    const hotelField=ville==='medine'?'hotelMedine':'hotelMakkah';
+    
+    const chambres={};
+    pelerins.filter(p=>p[chambreField]).forEach(p=>{
+      const num=p[chambreField];
+      if(!chambres[num])chambres[num]={hotel:p[hotelField]||'-',occupants:[]};
+      chambres[num].occupants.push(p);
+    });
+    
+    let y=15;
+    const nums=Object.keys(chambres).sort((a,b)=>parseInt(a)-parseInt(b));
+    
+    nums.forEach((num,idx)=>{
+      if(y>250){doc.addPage();y=15;}
+      const ch=chambres[num];
+      
+      doc.setFillColor(22,163,74);
+      doc.rect(10,y,190,10,'F');
+      doc.setTextColor(255,255,255);
+      doc.setFontSize(12);
+      doc.text('Chambre '+num+(ch.hotel?' - '+ch.hotel:''),15,y+7);
+      doc.setTextColor(0,0,0);
+      y+=15;
+      
+      ch.occupants.forEach(p=>{
+        doc.setFontSize(10);
+        doc.text('• '+p.nom?.toUpperCase()+' '+p.prenom+' ('+( p.sexe==='F'?'F':'M')+')',15,y);
+        if(p.whatsapp){doc.setFontSize(8);doc.text('   📱 '+p.whatsapp,15,y+4);y+=4;}
+        if(p.commentaire){doc.setFontSize(8);doc.setTextColor(200,100,0);doc.text('   ⚠️ '+p.commentaire,15,y+4);doc.setTextColor(0,0,0);y+=4;}
+        y+=8;
+      });
+      y+=5;
+    });
+    
+    doc.save('fiches_chambres_'+ville+'.pdf');
+  };
+
+  // PDF Liste avec trombinoscope
+  const printTrombinoscope=()=>{
+    const {jsPDF}=window.jspdf;
+    const doc=new jsPDF();
+    doc.setFontSize(18);
+    doc.text('Liste des pèlerins - Omra',105,15,{align:'center'});
+    doc.setFontSize(10);
+    doc.text(pelerins.length+' pèlerin(s) - '+new Date().toLocaleDateString('fr-FR'),105,22,{align:'center'});
+    
+    let y=35;
+    let x=15;
+    
+    pelerins.forEach((p,i)=>{
+      if(y>270){doc.addPage();y=15;x=15;}
+      if(x>150){x=15;y+=45;}
+      
+      // Cadre
+      doc.setDrawColor(200,200,200);
+      doc.rect(x,y,55,40);
+      
+      // Avatar cercle
+      doc.setFillColor(p.sexe==='F'?236:59,p.sexe==='F'?72:130,p.sexe==='F'?153:246);
+      doc.circle(x+15,y+15,10,'F');
+      doc.setTextColor(255,255,255);
+      doc.setFontSize(12);
+      doc.text((p.prenom?.[0]||'')+(p.nom?.[0]||''),x+15,y+18,{align:'center'});
+      
+      // Infos
+      doc.setTextColor(0,0,0);
+      doc.setFontSize(8);
+      doc.text(p.prenom||'',x+30,y+10);
+      doc.setFontSize(9);
+      doc.text(p.nom?.toUpperCase()||'',x+30,y+16);
+      doc.setFontSize(7);
+      doc.setTextColor(100,100,100);
+      if(p.chambreMedine)doc.text('Med: '+p.chambreMedine,x+30,y+22);
+      if(p.chambreMakkah)doc.text('Mak: '+p.chambreMakkah,x+30,y+27);
+      if(p.nomFamille)doc.text('Fam: '+p.nomFamille,x+30,y+32);
+      
+      x+=60;
+    });
+    
+    doc.save('liste_pelerins_omra.pdf');
+  };
+
   const filtered=pelerins.filter(p=>{
     if(search&&!p.nom?.toLowerCase().includes(search.toLowerCase())&&!p.prenom?.toLowerCase().includes(search.toLowerCase()))return false;
     if(filters.chambre&&!p.chambreMedine?.includes(filters.chambre)&&!p.chambreMakkah?.includes(filters.chambre))return false;
@@ -125,6 +275,7 @@ function App(){
               <button onClick={()=>{setEditId(null);setView('form')}} className="flex flex-col items-center p-3 bg-green-50 rounded-lg"><span>➕</span><span className="text-xs">Ajouter</span></button>
               <button onClick={()=>setModal('import')} className="flex flex-col items-center p-3 bg-purple-50 rounded-lg"><span>📥</span><span className="text-xs">Import</span></button>
               <button onClick={exportXL} className="flex flex-col items-center p-3 bg-blue-50 rounded-lg"><span>📤</span><span className="text-xs">Export</span></button>
+              <button onClick={()=>setPrintModal(true)} className="flex flex-col items-center p-3 bg-orange-50 rounded-lg"><span>🖨️</span><span className="text-xs">Imprimer</span></button>
             </div>
           </div>
         </>}
@@ -325,6 +476,35 @@ function App(){
           <div><label className="text-xs text-gray-500">👤 Autre</label><input value={urgence.autre} onChange={e=>setUrgence({...urgence,autre:e.target.value})} className="w-full border rounded-xl px-3 py-2" placeholder="+33..."/></div>
         </div>
         <button onClick={()=>{saveU(urgence);setModal('sos')}} className="w-full bg-green-600 text-white py-2 rounded-xl mt-4">💾 Enregistrer</button>
+      </div></div>}
+
+      {printModal&&<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={()=>setPrintModal(false)}><div className="bg-white rounded-2xl p-5 w-full max-w-sm" onClick={e=>e.stopPropagation()}>
+        <div className="font-bold text-lg mb-4">🖨️ Impressions PDF</div>
+        <div className="space-y-2">
+          <button onClick={()=>{printListeAppel();setPrintModal(false)}} className="w-full flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl p-3 text-left hover:bg-green-100">
+            <span className="text-2xl">📋</span>
+            <div><div className="font-medium">Liste d'appel</div><div className="text-xs text-gray-500">Pour pointer les pèlerins</div></div>
+          </button>
+          <button onClick={()=>{printTrombinoscope();setPrintModal(false)}} className="w-full flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-xl p-3 text-left hover:bg-blue-100">
+            <span className="text-2xl">👥</span>
+            <div><div className="font-medium">Liste avec photos</div><div className="text-xs text-gray-500">Trombinoscope des pèlerins</div></div>
+          </button>
+          <div className="pt-2 border-t">
+            <div className="text-sm font-medium text-gray-600 mb-2">🏨 Rooming List</div>
+            <div className="flex gap-2">
+              <button onClick={()=>{printRoomingList('medine');setPrintModal(false)}} className="flex-1 bg-blue-500 text-white py-2 rounded-xl text-sm">Médine</button>
+              <button onClick={()=>{printRoomingList('makkah');setPrintModal(false)}} className="flex-1 bg-green-500 text-white py-2 rounded-xl text-sm">Makkah</button>
+            </div>
+          </div>
+          <div className="pt-2 border-t">
+            <div className="text-sm font-medium text-gray-600 mb-2">🚪 Fiches par chambre</div>
+            <div className="flex gap-2">
+              <button onClick={()=>{printFicheChambres('medine');setPrintModal(false)}} className="flex-1 bg-blue-500 text-white py-2 rounded-xl text-sm">Médine</button>
+              <button onClick={()=>{printFicheChambres('makkah');setPrintModal(false)}} className="flex-1 bg-green-500 text-white py-2 rounded-xl text-sm">Makkah</button>
+            </div>
+          </div>
+        </div>
+        <button onClick={()=>setPrintModal(false)} className="w-full mt-4 py-2 border rounded-xl">Fermer</button>
       </div></div>}
     </div>
   );
