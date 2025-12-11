@@ -57,6 +57,8 @@ function App(){
   const [newHotel,setNewHotel]=useState({nom:'',ville:'medine'});
   const [cloudCode,setCloudCode]=useState('');
   const [cloudModal,setCloudModal]=useState(null);
+  const [myLocation,setMyLocation]=useState(null);
+  const [locationLoading,setLocationLoading]=useState(false);
 
   useEffect(()=>{
     const p=storage.get('pelerins');if(p)setPelerins(p);
@@ -190,6 +192,59 @@ function App(){
       document.body.removeChild(ta);
       alert('✅ Code copié !');
     }
+  };
+
+  // FONCTIONNALITÉS DE LOCALISATION
+  const getMyLocation=()=>{
+    setLocationLoading(true);
+    if(!navigator.geolocation){
+      alert('❌ Géolocalisation non disponible sur cet appareil');
+      setLocationLoading(false);
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      pos=>{
+        const loc={lat:pos.coords.latitude,lng:pos.coords.longitude,time:new Date().toISOString()};
+        setMyLocation(loc);
+        setLocationLoading(false);
+        alert('✅ Position obtenue !');
+      },
+      err=>{
+        alert('❌ Impossible d\'obtenir la position\n\nVérifiez que vous avez autorisé l\'accès à la localisation.');
+        setLocationLoading(false);
+      },
+      {enableHighAccuracy:true,timeout:10000}
+    );
+  };
+
+  const shareMyLocationToAll=()=>{
+    if(!myLocation){
+      alert('❌ Obtenez d\'abord votre position en cliquant sur "Obtenir ma position"');
+      return;
+    }
+    const mapsUrl=`https://www.google.com/maps?q=${myLocation.lat},${myLocation.lng}`;
+    const message=`📍 Localisation du guide\n\nVoici ma position actuelle :\n${mapsUrl}\n\n🕋 Omra Guide`;
+    const withWhatsapp=pelerins.filter(p=>p.whatsapp);
+    if(!withWhatsapp.length){
+      alert('❌ Aucun pèlerin n\'a de numéro WhatsApp');
+      return;
+    }
+    if(!confirm(`Envoyer ma position à ${withWhatsapp.length} pèlerin(s) via WhatsApp ?`))return;
+    
+    withWhatsapp.forEach((p,i)=>{
+      setTimeout(()=>{
+        const phone=p.whatsapp.replace(/\s/g,'').replace(/^0/,'33');
+        const url=`https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+        window.open(url,'_blank');
+      },i*1500);
+    });
+  };
+
+  const requestPelerinLocation=p=>{
+    if(!p.whatsapp){alert('❌ Pas de WhatsApp');return}
+    const message=`Salam ${p.prenom},\n\nMerci de partager votre localisation :\n\n1️⃣ Cliquez sur le trombone 📎\n2️⃣ Sélectionnez "Position"\n3️⃣ Envoyez votre position actuelle\n\nBarakAllahu fik 🤲\n\n🕋 Omra Guide`;
+    const phone=p.whatsapp.replace(/\s/g,'').replace(/^0/,'33');
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`,'_blank');
   };
 
   const addHotel=()=>{
@@ -424,6 +479,7 @@ function App(){
               <button onClick={()=>setModal('import')} className="flex flex-col items-center p-3 bg-purple-50 rounded-lg"><span>📥</span><span className="text-xs">Import</span></button>
               <button onClick={exportXL} className="flex flex-col items-center p-3 bg-blue-50 rounded-lg"><span>📤</span><span className="text-xs">Export</span></button>
               <button onClick={()=>setPrintModal(true)} className="flex flex-col items-center p-3 bg-orange-50 rounded-lg"><span>🖨️</span><span className="text-xs">Imprimer</span></button>
+              <button onClick={()=>setView('localisation')} className="flex flex-col items-center p-3 bg-sky-50 rounded-lg"><span>📍</span><span className="text-xs">Localisation</span></button>
               <button onClick={resetAll} className="flex flex-col items-center p-3 bg-red-50 rounded-lg"><span>🔄</span><span className="text-xs">Réinitialiser</span></button>
             </div>
           </div>
@@ -476,7 +532,8 @@ function App(){
               </div>
             </div>
             <div className="flex">
-              {p.whatsapp&&<button onClick={()=>wa(p.whatsapp)} className="p-2">📱</button>}
+              {p.whatsapp&&<button onClick={()=>wa(p.whatsapp)} className="p-2" title="WhatsApp">📱</button>}
+              {p.whatsapp&&<button onClick={()=>requestPelerinLocation(p)} className="p-2" title="Demander position">📍</button>}
               <button onClick={()=>{setEditId(p.id);setView('form')}} className="p-2">✏️</button>
               <button onClick={()=>{if(confirm('Supprimer?'))save(pelerins.filter(x=>x.id!==p.id))}} className="p-2">🗑️</button>
             </div>
@@ -573,6 +630,68 @@ function App(){
         {view==='familles'&&<>
           <div className="font-bold">👨‍👩‍👧 Familles ({familles.length})</div>
           {familles.map(f=>{const m=pelerins.filter(p=>p.nomFamille===f);return<div key={f} className="bg-white rounded-xl shadow-sm overflow-hidden mb-3"><div className="bg-purple-600 text-white px-4 py-2 font-bold">Famille {f} ({m.length})</div><div className="p-3">{m.map(x=><div key={x.id} className="flex items-center gap-2 py-1"><div className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center text-white text-xs">{x.prenom?.[0]}</div><span className="text-sm">{x.prenom} {x.nom}</span>{x.lienFamilial&&<span className="text-xs text-gray-500">({x.lienFamilial})</span>}</div>)}</div></div>})}
+        </>}
+
+        {view==='localisation'&&<>
+          <div className="font-bold mb-4">📍 Localisation GPS</div>
+          
+          {/* Ma position */}
+          <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl p-4 shadow-lg mb-4">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-2xl">🧭</span>
+              <div className="font-bold">Ma position</div>
+            </div>
+            {myLocation?<>
+              <div className="bg-white/20 backdrop-blur rounded-lg p-3 mb-3 text-sm">
+                <div>📍 Latitude: {myLocation.lat.toFixed(6)}</div>
+                <div>📍 Longitude: {myLocation.lng.toFixed(6)}</div>
+                <div className="text-xs mt-1 opacity-80">🕐 {new Date(myLocation.time).toLocaleString('fr-FR')}</div>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={getMyLocation} disabled={locationLoading} className="flex-1 bg-white/20 backdrop-blur py-2 rounded-lg disabled:opacity-50">
+                  {locationLoading?'⏳ Chargement...':'🔄 Actualiser'}
+                </button>
+                <button onClick={shareMyLocationToAll} className="flex-1 bg-white text-blue-600 py-2 rounded-lg font-bold">
+                  📤 Envoyer à tous
+                </button>
+              </div>
+            </>:<>
+              <p className="text-sm mb-3 opacity-90">Obtenez votre position GPS actuelle pour la partager avec vos pèlerins.</p>
+              <button onClick={getMyLocation} disabled={locationLoading} className="w-full bg-white text-blue-600 py-3 rounded-lg font-bold disabled:opacity-50">
+                {locationLoading?'⏳ Obtention de la position...':'📍 Obtenir ma position'}
+              </button>
+            </>}
+          </div>
+
+          {/* Info */}
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4">
+            <div className="flex gap-2">
+              <span className="text-xl">💡</span>
+              <div className="text-sm text-amber-800">
+                <div className="font-bold mb-1">Comment ça marche ?</div>
+                <ul className="space-y-1 text-xs">
+                  <li>• Cliquez sur "Obtenir ma position" pour récupérer votre localisation GPS</li>
+                  <li>• "Envoyer à tous" partage votre position via WhatsApp à tous les pèlerins</li>
+                  <li>• "Demander position" envoie un message au pèlerin pour qu'il partage sa localisation</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          {/* Liste des pèlerins */}
+          <div className="font-bold text-sm mb-2">👥 Demander la position d'un pèlerin</div>
+          {pelerins.filter(p=>p.whatsapp).length?pelerins.filter(p=>p.whatsapp).map(p=><div key={p.id} className="bg-white rounded-xl p-3 shadow-sm mb-2 flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${p.sexe==='F'?'bg-pink-500':'bg-blue-500'}`}>{p.prenom?.[0]}{p.nom?.[0]}</div>
+              <div>
+                <div className="font-bold text-sm">{p.prenom} {p.nom}</div>
+                <div className="text-xs text-gray-500">{p.whatsapp}</div>
+              </div>
+            </div>
+            <button onClick={()=>requestPelerinLocation(p)} className="bg-green-100 text-green-700 px-4 py-2 rounded-lg text-sm font-medium active:scale-95 transition-transform">
+              📲 Demander
+            </button>
+          </div>):<div className="text-center py-10 text-gray-400">Aucun pèlerin avec WhatsApp</div>}
         </>}
 
         {view==='spirituel'&&<>
@@ -685,7 +804,7 @@ function App(){
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t flex z-30">
-        {[['🏠','dashboard'],['👥','list'],['🏨','chambres'],['✅','appel'],['🤲','spirituel'],['👨‍👩‍👧','familles']].map(([e,v])=><button key={v} onClick={()=>setView(v)} className={`flex-1 py-3 text-sm ${view===v?'text-green-600 border-t-2 border-green-600':'text-gray-500'}`}>{e}</button>)}
+        {[['🏠','dashboard'],['👥','list'],['🏨','chambres'],['✅','appel'],['📍','localisation'],['🤲','spirituel'],['👨‍👩‍👧','familles']].map(([e,v])=><button key={v} onClick={()=>setView(v)} className={`flex-1 py-3 text-sm ${view===v?'text-green-600 border-t-2 border-green-600':'text-gray-500'}`}>{e}</button>)}
       </div>
 
       <button onClick={()=>setModal('sos')} className="sos-btn fixed bottom-20 right-4 w-14 h-14 bg-red-600 text-white rounded-full shadow-lg flex items-center justify-center text-2xl z-40">🆘</button>
