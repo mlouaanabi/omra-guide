@@ -55,6 +55,8 @@ function App(){
   const [villeChambres,setVilleChambres]=useState('medine');
   const [hotelModal,setHotelModal]=useState(false);
   const [newHotel,setNewHotel]=useState({nom:'',ville:'medine'});
+  const [cloudCode,setCloudCode]=useState('');
+  const [cloudModal,setCloudModal]=useState(null);
 
   useEffect(()=>{
     const p=storage.get('pelerins');if(p)setPelerins(p);
@@ -75,6 +77,120 @@ function App(){
   const call=n=>n&&(window.location.href='tel:'+n.replace(/\s/g,''));
   const wa=n=>n&&window.open('https://wa.me/'+n.replace(/\s/g,'').replace(/^0/,'33'));
   const age=d=>{if(!d)return null;const t=new Date(),b=new Date(d);let a=t.getFullYear()-b.getFullYear();if(t.getMonth()<b.getMonth()||(t.getMonth()===b.getMonth()&&t.getDate()<b.getDate()))a--;return a};
+
+  // NOUVELLE FONCTIONNALITÉ : Réinitialisation
+  const resetAll=()=>{
+    if(!confirm('⚠️ ATTENTION : Voulez-vous vraiment réinitialiser TOUTES les données ?\n\nCela supprimera :\n- Tous les pèlerins\n- Tous les hôtels\n- Toutes les configurations\n\nCette action est IRRÉVERSIBLE !'))return;
+    if(!confirm('⚠️ DERNIÈRE CONFIRMATION\n\nÊtes-vous absolument certain de vouloir tout effacer ?\n\nPensez à faire une sauvegarde cloud avant !'))return;
+    
+    setPelerins([]);
+    setHotels({medine:[],makkah:[]});
+    setUrgence({consulat:'',agence:'',hotelMed:'',hotelMak:'',autre:''});
+    setAppel({});
+    setTawafCount(0);
+    setSayiCount(0);
+    
+    storage.set('pelerins',[]);
+    storage.set('hotels',{medine:[],makkah:[]});
+    storage.set('urgence',{consulat:'',agence:'',hotelMed:'',hotelMak:'',autre:''});
+    
+    alert('✅ Toutes les données ont été réinitialisées !\n\nVous pouvez maintenant commencer un nouveau voyage.');
+  };
+
+  // NOUVELLE FONCTIONNALITÉ : Export vers Cloud
+  const exportToCloud=()=>{
+    const data={
+      pelerins,
+      hotels,
+      urgence,
+      date:new Date().toISOString(),
+      version:'2.0'
+    };
+    const json=JSON.stringify(data);
+    const encoded=btoa(encodeURIComponent(json));
+    setCloudCode(encoded);
+    setCloudModal('export');
+  };
+
+  // NOUVELLE FONCTIONNALITÉ : Import depuis Cloud
+  const importFromCloud=()=>{
+    if(!cloudCode.trim()){alert('❌ Veuillez coller un code de sauvegarde');return}
+    try{
+      const json=decodeURIComponent(atob(cloudCode.trim()));
+      const data=JSON.parse(json);
+      
+      if(!data.version){throw new Error('Format invalide')}
+      
+      if(!confirm(`📥 Importer cette sauvegarde ?\n\nDate : ${new Date(data.date).toLocaleString('fr-FR')}\nPèlerins : ${data.pelerins?.length||0}\n\n⚠️ Cela écrasera vos données actuelles !`))return;
+      
+      if(data.pelerins)save(data.pelerins);
+      if(data.hotels)saveH(data.hotels);
+      if(data.urgence)saveU(data.urgence);
+      
+      setCloudModal(null);
+      setCloudCode('');
+      alert('✅ Sauvegarde importée avec succès !');
+    }catch(e){
+      alert('❌ Code invalide ou corrompu\n\nVérifiez que vous avez copié le code complet.');
+    }
+  };
+
+  // NOUVELLE FONCTIONNALITÉ : Télécharger backup JSON
+  const downloadBackup=()=>{
+    const data={
+      pelerins,
+      hotels,
+      urgence,
+      date:new Date().toISOString(),
+      version:'2.0'
+    };
+    const json=JSON.stringify(data,null,2);
+    const blob=new Blob([json],{type:'application/json'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
+    a.download=`omra-backup-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // NOUVELLE FONCTIONNALITÉ : Restaurer backup JSON
+  const restoreBackup=f=>{
+    if(!f)return;
+    const reader=new FileReader();
+    reader.onload=e=>{
+      try{
+        const data=JSON.parse(e.target.result);
+        if(!data.version){throw new Error('Format invalide')}
+        
+        if(!confirm(`📥 Restaurer ce backup ?\n\nDate : ${new Date(data.date).toLocaleString('fr-FR')}\nPèlerins : ${data.pelerins?.length||0}\n\n⚠️ Cela écrasera vos données actuelles !`))return;
+        
+        if(data.pelerins)save(data.pelerins);
+        if(data.hotels)saveH(data.hotels);
+        if(data.urgence)saveU(data.urgence);
+        
+        setModal(null);
+        alert('✅ Backup restauré avec succès !');
+      }catch(e){
+        alert('❌ Fichier invalide ou corrompu');
+      }
+    };
+    reader.readAsText(f);
+  };
+
+  const copyToClipboard=text=>{
+    if(navigator.clipboard){
+      navigator.clipboard.writeText(text).then(()=>alert('✅ Code copié dans le presse-papiers !'));
+    }else{
+      const ta=document.createElement('textarea');
+      ta.value=text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      alert('✅ Code copié !');
+    }
+  };
 
   const addHotel=()=>{
     if(!newHotel.nom.trim())return;
@@ -104,7 +220,6 @@ function App(){
     const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(d),"Pelerins");XLSX.writeFile(wb,'pelerins.xlsx');
   };
 
-  // PDF Liste d'appel
   const printListeAppel=()=>{
     const {jsPDF}=window.jspdf;
     const doc=new jsPDF();
@@ -125,7 +240,6 @@ function App(){
     doc.save('liste_appel_omra.pdf');
   };
 
-  // PDF Rooming List
   const printRoomingList=(ville)=>{
     const {jsPDF}=window.jspdf;
     const doc=new jsPDF();
@@ -163,7 +277,6 @@ function App(){
     doc.save('rooming_list_'+ville+'.pdf');
   };
 
-  // PDF Fiche par chambre
   const printFicheChambres=(ville)=>{
     const {jsPDF}=window.jspdf;
     const doc=new jsPDF();
@@ -206,7 +319,6 @@ function App(){
     doc.save('fiches_chambres_'+ville+'.pdf');
   };
 
-  // PDF Liste avec trombinoscope
   const printTrombinoscope=()=>{
     const {jsPDF}=window.jspdf;
     const doc=new jsPDF();
@@ -222,18 +334,15 @@ function App(){
       if(y>270){doc.addPage();y=15;x=15;}
       if(x>150){x=15;y+=45;}
       
-      // Cadre
       doc.setDrawColor(200,200,200);
       doc.rect(x,y,55,40);
       
-      // Avatar cercle
       doc.setFillColor(p.sexe==='F'?236:59,p.sexe==='F'?72:130,p.sexe==='F'?153:246);
       doc.circle(x+15,y+15,10,'F');
       doc.setTextColor(255,255,255);
       doc.setFontSize(12);
       doc.text((p.prenom?.[0]||'')+(p.nom?.[0]||''),x+15,y+18,{align:'center'});
       
-      // Infos
       doc.setTextColor(0,0,0);
       doc.setFontSize(8);
       doc.text(p.prenom||'',x+30,y+10);
@@ -278,11 +387,36 @@ function App(){
       <div className="p-4 space-y-4">
         {view==='dashboard'&&<>
           <div className="grid grid-cols-2 gap-3">
-  <button onClick={()=>setView('list')} className="bg-blue-500 text-white rounded-xl p-4 text-left active:scale-95 transition-transform"><div className="text-2xl font-bold">{stats.total}</div><div className="text-xs">Pèlerins</div></button>
-  <button onClick={()=>setView('familles')} className="bg-purple-500 text-white rounded-xl p-4 text-left active:scale-95 transition-transform"><div className="text-2xl font-bold">{stats.fam}</div><div className="text-xs">Familles</div></button>
-  <button onClick={()=>{setFilters({...filters,sexe:'M'});setView('list')}} className="bg-sky-500 text-white rounded-xl p-4 text-left active:scale-95 transition-transform"><div className="text-2xl font-bold">{stats.h}</div><div className="text-xs">Hommes</div></button>
-  <button onClick={()=>{setFilters({...filters,sexe:'F'});setView('list')}} className="bg-pink-500 text-white rounded-xl p-4 text-left active:scale-95 transition-transform"><div className="text-2xl font-bold">{stats.f}</div><div className="text-xs">Femmes</div></button>
-</div>
+            <button onClick={()=>setView('list')} className="bg-blue-500 text-white rounded-xl p-4 text-left active:scale-95 transition-transform"><div className="text-2xl font-bold">{stats.total}</div><div className="text-xs">Pèlerins</div></button>
+            <button onClick={()=>setView('familles')} className="bg-purple-500 text-white rounded-xl p-4 text-left active:scale-95 transition-transform"><div className="text-2xl font-bold">{stats.fam}</div><div className="text-xs">Familles</div></button>
+            <button onClick={()=>{setFilters({...filters,sexe:'M'});setView('list')}} className="bg-sky-500 text-white rounded-xl p-4 text-left active:scale-95 transition-transform"><div className="text-2xl font-bold">{stats.h}</div><div className="text-xs">Hommes</div></button>
+            <button onClick={()=>{setFilters({...filters,sexe:'F'});setView('list')}} className="bg-pink-500 text-white rounded-xl p-4 text-left active:scale-95 transition-transform"><div className="text-2xl font-bold">{stats.f}</div><div className="text-xs">Femmes</div></button>
+          </div>
+
+          {/* NOUVELLE SECTION : Sauvegarde Cloud */}
+          <div className="bg-gradient-to-br from-blue-500 to-purple-600 text-white rounded-xl p-4 shadow-lg">
+            <div className="font-bold text-sm mb-3">☁️ Sauvegarde Cloud</div>
+            <div className="grid grid-cols-2 gap-2">
+              <button onClick={exportToCloud} className="flex flex-col items-center p-3 bg-white/20 backdrop-blur rounded-lg active:scale-95 transition-transform">
+                <span className="text-2xl">📤</span>
+                <span className="text-xs mt-1">Sauvegarder</span>
+              </button>
+              <button onClick={()=>setCloudModal('import')} className="flex flex-col items-center p-3 bg-white/20 backdrop-blur rounded-lg active:scale-95 transition-transform">
+                <span className="text-2xl">📥</span>
+                <span className="text-xs mt-1">Restaurer</span>
+              </button>
+              <button onClick={downloadBackup} className="flex flex-col items-center p-3 bg-white/20 backdrop-blur rounded-lg active:scale-95 transition-transform">
+                <span className="text-2xl">💾</span>
+                <span className="text-xs mt-1">Backup JSON</span>
+              </button>
+              <label className="flex flex-col items-center p-3 bg-white/20 backdrop-blur rounded-lg active:scale-95 transition-transform cursor-pointer">
+                <span className="text-2xl">📂</span>
+                <span className="text-xs mt-1">Restaurer JSON</span>
+                <input type="file" accept=".json" onChange={e=>e.target.files[0]&&restoreBackup(e.target.files[0])} className="hidden"/>
+              </label>
+            </div>
+          </div>
+
           <div className="bg-white rounded-xl p-4 shadow-sm">
             <div className="font-bold text-sm mb-3">⚡ Actions</div>
             <div className="grid grid-cols-3 gap-2">
@@ -290,8 +424,10 @@ function App(){
               <button onClick={()=>setModal('import')} className="flex flex-col items-center p-3 bg-purple-50 rounded-lg"><span>📥</span><span className="text-xs">Import</span></button>
               <button onClick={exportXL} className="flex flex-col items-center p-3 bg-blue-50 rounded-lg"><span>📤</span><span className="text-xs">Export</span></button>
               <button onClick={()=>setPrintModal(true)} className="flex flex-col items-center p-3 bg-orange-50 rounded-lg"><span>🖨️</span><span className="text-xs">Imprimer</span></button>
+              <button onClick={resetAll} className="flex flex-col items-center p-3 bg-red-50 rounded-lg"><span>🔄</span><span className="text-xs">Réinitialiser</span></button>
             </div>
           </div>
+
           <div className="bg-white rounded-xl p-4 shadow-sm">
             <div className="flex justify-between items-center mb-3">
               <div className="font-bold text-sm">🏢 Hôtels</div>
@@ -371,7 +507,6 @@ function App(){
             
             if(!nums.length)return<div className="text-center py-10 text-gray-400">Aucune chambre attribuée</div>;
             
-            // Stats
             let totalPlaces=0,totalOcc=0;
             nums.forEach(n=>{const c=chambres[n];totalPlaces+=getCap(c.type);totalOcc+=c.occupants.length});
             const taux=totalPlaces>0?Math.round((totalOcc/totalPlaces)*100):0;
@@ -554,6 +689,34 @@ function App(){
       </div>
 
       <button onClick={()=>setModal('sos')} className="sos-btn fixed bottom-20 right-4 w-14 h-14 bg-red-600 text-white rounded-full shadow-lg flex items-center justify-center text-2xl z-40">🆘</button>
+
+      {/* Modal Export Cloud */}
+      {cloudModal==='export'&&<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={()=>setCloudModal(null)}><div className="bg-white rounded-2xl p-5 w-full max-w-md" onClick={e=>e.stopPropagation()}>
+        <div className="font-bold text-lg mb-3">📤 Code de sauvegarde</div>
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
+          <div className="text-xs text-gray-600 mb-2">Copiez ce code pour sauvegarder vos données :</div>
+          <textarea value={cloudCode} readOnly className="w-full h-32 text-xs font-mono p-2 border rounded bg-white" onClick={e=>e.target.select()}/>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={()=>copyToClipboard(cloudCode)} className="flex-1 bg-blue-600 text-white py-2 rounded-xl">📋 Copier</button>
+          <button onClick={()=>setCloudModal(null)} className="flex-1 border py-2 rounded-xl">Fermer</button>
+        </div>
+        <div className="text-xs text-gray-500 mt-3">💡 Conservez ce code en lieu sûr. Vous pourrez l'utiliser pour restaurer vos données sur n'importe quel appareil.</div>
+      </div></div>}
+
+      {/* Modal Import Cloud */}
+      {cloudModal==='import'&&<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={()=>setCloudModal(null)}><div className="bg-white rounded-2xl p-5 w-full max-w-md" onClick={e=>e.stopPropagation()}>
+        <div className="font-bold text-lg mb-3">📥 Restaurer depuis le cloud</div>
+        <div className="mb-3">
+          <label className="text-sm text-gray-600 mb-2 block">Collez votre code de sauvegarde :</label>
+          <textarea value={cloudCode} onChange={e=>setCloudCode(e.target.value)} placeholder="Collez le code ici..." className="w-full h-32 text-xs font-mono p-2 border rounded"/>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={()=>setCloudModal(null)} className="flex-1 border py-2 rounded-xl">Annuler</button>
+          <button onClick={importFromCloud} className="flex-1 bg-green-600 text-white py-2 rounded-xl">Restaurer</button>
+        </div>
+        <div className="text-xs text-gray-500 mt-3">⚠️ Cette action remplacera vos données actuelles par celles du code.</div>
+      </div></div>}
 
       {modal==='import'&&<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={()=>setModal(null)}><div className="bg-white rounded-2xl p-5 w-full max-w-sm" onClick={e=>e.stopPropagation()}><div className="font-bold mb-4">📥 Importer</div><label className="block w-full bg-green-600 text-white py-3 rounded-xl text-center">Sélectionner fichier<input type="file" accept=".csv,.xlsx" onChange={e=>e.target.files[0]&&handleFile(e.target.files[0])} className="hidden"/></label><button onClick={()=>setModal(null)} className="w-full mt-3 py-2 border rounded-xl">Fermer</button></div></div>}
 
