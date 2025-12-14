@@ -62,12 +62,16 @@ function App(){
   const [myLocation,setMyLocation]=useState(null);
   const [locationLoading,setLocationLoading]=useState(false);
   const [imagePreview,setImagePreview]=useState(null);
+  const [prayerCity,setPrayerCity]=useState('makkah');
+  const [prayerTimes,setPrayerTimes]=useState(null);
+  const [prayerLoading,setPrayerLoading]=useState(false);
 
   useEffect(()=>{
     const p=storage.get('pelerins');if(p)setPelerins(p);
     const h=storage.get('hotels');if(h)setHotels(h);
     const u=storage.get('urgence');if(u)setUrgence(u);
     const d=storage.get('darkMode');if(d)setDarkMode(d);
+    const pc=storage.get('prayerCity');if(pc)setPrayerCity(pc);
   },[]);
 
   useEffect(()=>{
@@ -243,6 +247,37 @@ function App(){
     const phone=p.whatsapp.replace(/\s/g,'').replace(/^0/,'33');
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`,'_blank');
   };
+
+  const getPrayerTimes=async(city)=>{
+    setPrayerLoading(true);
+    try{
+      const coords=city==='makkah'?{lat:21.4225,lng:39.8262}:{lat:24.5247,lng:39.5692};
+      const date=new Date();
+      const day=date.getDate();
+      const month=date.getMonth()+1;
+      const year=date.getFullYear();
+      
+      const url=`https://api.aladhan.com/v1/timings/${day}-${month}-${year}?latitude=${coords.lat}&longitude=${coords.lng}&method=4`;
+      const res=await fetch(url);
+      const data=await res.json();
+      
+      if(data.code===200&&data.data){
+        setPrayerTimes(data.data.timings);
+      }else{
+        throw new Error('Erreur API');
+      }
+    }catch(e){
+      alert('❌ Impossible de récupérer les horaires de prières');
+      console.error(e);
+    }finally{
+      setPrayerLoading(false);
+    }
+  };
+
+  useEffect(()=>{
+    getPrayerTimes(prayerCity);
+    storage.set('prayerCity',prayerCity);
+  },[prayerCity]);
 
   const addHotel=()=>{
     if(!newHotel.nom.trim())return;
@@ -498,6 +533,40 @@ function App(){
               <button onClick={resetAll} className="flex flex-col items-center p-3 bg-red-50 rounded-lg"><span>🔄</span><span className="text-xs">Réinitialiser</span></button>
             </div>
           </div>
+
+          {prayerTimes&&<div className="bg-gradient-to-br from-teal-500 to-green-600 text-white rounded-xl p-4 shadow-lg">
+            <div className="flex items-center justify-between mb-3">
+              <div className="font-bold text-sm">🕌 Prochaine prière</div>
+              <button onClick={()=>setView('prieres')} className="bg-white/20 backdrop-blur px-3 py-1 rounded-full text-xs">Voir tout</button>
+            </div>
+            {(()=>{
+              const now=new Date();
+              const prayers=[
+                {name:'Fajr',ar:'الفجر',time:prayerTimes.Fajr,emoji:'🌅'},
+                {name:'Dhuhr',ar:'الظهر',time:prayerTimes.Dhuhr,emoji:'☀️'},
+                {name:'Asr',ar:'العصر',time:prayerTimes.Asr,emoji:'🌤️'},
+                {name:'Maghrib',ar:'المغرب',time:prayerTimes.Maghrib,emoji:'🌆'},
+                {name:'Isha',ar:'العشاء',time:prayerTimes.Isha,emoji:'🌙'}
+              ];
+              const nextPrayer=prayers.find(p=>{
+                const [h,m]=p.time.split(':');
+                const pt=new Date();
+                pt.setHours(parseInt(h),parseInt(m),0);
+                return pt>now;
+              })||prayers[0];
+              return<div className="flex items-center justify-between bg-white/20 backdrop-blur rounded-lg p-3">
+                <div className="flex items-center gap-3">
+                  <span className="text-3xl">{nextPrayer.emoji}</span>
+                  <div>
+                    <div className="font-bold">{nextPrayer.name}</div>
+                    <div className="text-xs opacity-80" dir="rtl">{nextPrayer.ar}</div>
+                  </div>
+                </div>
+                <div className="text-2xl font-bold">{nextPrayer.time}</div>
+              </div>
+            })()}
+            <div className="text-xs text-center mt-2 opacity-80">{prayerCity==='makkah'?'🕋 Makkah':'🕌 Médine'}</div>
+          </div>}
 
           <div className="bg-white rounded-xl p-4 shadow-sm">
             <div className="flex justify-between items-center mb-3">
@@ -810,6 +879,92 @@ function App(){
           </div>):<div className="text-center py-10 text-gray-400">Aucun pèlerin avec WhatsApp</div>}
         </>}
 
+        {view==='prieres'&&<>
+          <div className="font-bold mb-4">🕌 Horaires de prières</div>
+          
+          <div className="bg-gradient-to-br from-green-600 to-teal-600 text-white rounded-xl p-4 shadow-lg mb-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">🕌</span>
+                <div className="font-bold">Localisation</div>
+              </div>
+              <div className="text-xs opacity-80">{new Date().toLocaleDateString('fr-FR')}</div>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={()=>setPrayerCity('makkah')} className={`flex-1 py-2 rounded-lg font-bold transition-all ${prayerCity==='makkah'?'bg-white text-green-600':'bg-white/20'}`}>
+                🕋 Makkah
+              </button>
+              <button onClick={()=>setPrayerCity('medine')} className={`flex-1 py-2 rounded-lg font-bold transition-all ${prayerCity==='medine'?'bg-white text-green-600':'bg-white/20'}`}>
+                🕌 Médine
+              </button>
+            </div>
+          </div>
+
+          {prayerLoading?<div className="text-center py-10">
+            <div className="text-4xl mb-2">⏳</div>
+            <div className="text-gray-500">Chargement des horaires...</div>
+          </div>:prayerTimes?<>
+            <div className="space-y-3">
+              {[
+                {name:'Fajr',emoji:'🌅',ar:'الفجر',key:'Fajr'},
+                {name:'Dhuhr',emoji:'☀️',ar:'الظهر',key:'Dhuhr'},
+                {name:'Asr',emoji:'🌤️',ar:'العصر',key:'Asr'},
+                {name:'Maghrib',emoji:'🌆',ar:'المغرب',key:'Maghrib'},
+                {name:'Isha',emoji:'🌙',ar:'العشاء',key:'Isha'}
+              ].map(prayer=>{
+                const now=new Date();
+                const [h,m]=prayerTimes[prayer.key].split(':');
+                const prayerTime=new Date();
+                prayerTime.setHours(parseInt(h),parseInt(m),0);
+                const isPast=now>prayerTime;
+                const isNext=!isPast&&[
+                  {name:'Fajr',time:prayerTimes.Fajr},
+                  {name:'Dhuhr',time:prayerTimes.Dhuhr},
+                  {name:'Asr',time:prayerTimes.Asr},
+                  {name:'Maghrib',time:prayerTimes.Maghrib},
+                  {name:'Isha',time:prayerTimes.Isha}
+                ].filter(p=>{
+                  const [ph,pm]=p.time.split(':');
+                  const pt=new Date();
+                  pt.setHours(parseInt(ph),parseInt(pm),0);
+                  return pt>now;
+                })[0]?.name===prayer.name;
+
+                return<div key={prayer.key} className={`bg-white rounded-xl p-4 shadow-sm border-2 ${isNext?'border-green-500 bg-green-50':'border-transparent'} ${isPast?'opacity-60':''}`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="text-3xl">{prayer.emoji}</div>
+                      <div>
+                        <div className="font-bold text-lg">{prayer.name}</div>
+                        <div className="text-sm text-gray-500" dir="rtl">{prayer.ar}</div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-bold text-green-600">{prayerTimes[prayer.key]}</div>
+                      {isNext&&<div className="text-xs text-green-600 font-bold mt-1">Prochaine prière</div>}
+                      {isPast&&<div className="text-xs text-gray-400 mt-1">Passée</div>}
+                    </div>
+                  </div>
+                </div>
+              })}
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mt-4">
+              <div className="flex gap-2">
+                <span className="text-xl">ℹ️</span>
+                <div className="text-sm text-blue-800">
+                  <div className="font-bold mb-1">Informations</div>
+                  <div className="text-xs">Horaires calculés pour {prayerCity==='makkah'?'Makkah':'Médine'} • Méthode Umm Al-Qura</div>
+                </div>
+              </div>
+            </div>
+
+            <button onClick={()=>getPrayerTimes(prayerCity)} className="w-full bg-green-600 text-white py-3 rounded-xl mt-3 font-bold active:scale-95 transition-transform">
+              🔄 Actualiser
+            </button>
+          </>:<div className="text-center py-10 text-gray-400">Erreur de chargement</div>}
+        </>}
+
         {view==='spirituel'&&<>
           <div className="flex gap-2 mb-4">
             <button onClick={()=>setSpirituelTab('guide')} className={`flex-1 py-2 rounded-xl text-sm font-medium ${spirituelTab==='guide'?'bg-green-600 text-white':'bg-white'}`}>📖 Guide</button>
@@ -920,7 +1075,7 @@ function App(){
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t flex z-30 overflow-x-auto">
-        {[['🏠','dashboard'],['👥','list'],['📄','documents'],['🏨','chambres'],['✅','appel'],['📍','localisation'],['🤲','spirituel'],['👨‍👩‍👧','familles']].map(([e,v])=><button key={v} onClick={()=>setView(v)} className={`flex-none px-3 py-3 text-xs ${view===v?'text-green-600 border-t-2 border-green-600':'text-gray-500'}`}>{e}</button>)}
+        {[['🏠','dashboard'],['👥','list'],['📄','documents'],['🏨','chambres'],['✅','appel'],['📍','localisation'],['🕌','prieres'],['🤲','spirituel'],['👨‍👩‍👧','familles']].map(([e,v])=><button key={v} onClick={()=>setView(v)} className={`flex-none px-3 py-3 text-xs ${view===v?'text-green-600 border-t-2 border-green-600':'text-gray-500'}`}>{e}</button>)}
       </div>
 
       <button onClick={()=>setModal('sos')} className="sos-btn fixed bottom-20 right-4 w-14 h-14 bg-red-600 text-white rounded-full shadow-lg flex items-center justify-center text-2xl z-40">🆘</button>
