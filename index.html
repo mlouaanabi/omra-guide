@@ -28,6 +28,8 @@
 .dark .shadow-sm{box-shadow:0 1px 2px rgba(0,0,0,0.3)!important}
 .dark input,.dark select,.dark textarea{background:#374151!important;color:#f3f4f6!important;border-color:#4b5563!important}
 .dark input::placeholder{color:#9ca3af!important}
+.doc-thumb{width:60px;height:60px;object-fit:cover;border-radius:8px;cursor:pointer}
+.doc-preview{max-width:90vw;max-height:90vh;object-fit:contain}
 </style>
 </head>
 <body>
@@ -59,6 +61,7 @@ function App(){
   const [cloudModal,setCloudModal]=useState(null);
   const [myLocation,setMyLocation]=useState(null);
   const [locationLoading,setLocationLoading]=useState(false);
+  const [imagePreview,setImagePreview]=useState(null);
 
   useEffect(()=>{
     const p=storage.get('pelerins');if(p)setPelerins(p);
@@ -80,9 +83,8 @@ function App(){
   const wa=n=>n&&window.open('https://wa.me/'+n.replace(/\s/g,'').replace(/^0/,'33'));
   const age=d=>{if(!d)return null;const t=new Date(),b=new Date(d);let a=t.getFullYear()-b.getFullYear();if(t.getMonth()<b.getMonth()||(t.getMonth()===b.getMonth()&&t.getDate()<b.getDate()))a--;return a};
 
-  // NOUVELLE FONCTIONNALITÉ : Réinitialisation
   const resetAll=()=>{
-    if(!confirm('⚠️ ATTENTION : Voulez-vous vraiment réinitialiser TOUTES les données ?\n\nCela supprimera :\n- Tous les pèlerins\n- Tous les hôtels\n- Toutes les configurations\n\nCette action est IRRÉVERSIBLE !'))return;
+    if(!confirm('⚠️ ATTENTION : Voulez-vous vraiment réinitialiser TOUTES les données ?\n\nCela supprimera :\n- Tous les pèlerins\n- Tous les hôtels\n- Toutes les configurations\n- Tous les documents\n\nCette action est IRRÉVERSIBLE !'))return;
     if(!confirm('⚠️ DERNIÈRE CONFIRMATION\n\nÊtes-vous absolument certain de vouloir tout effacer ?\n\nPensez à faire une sauvegarde cloud avant !'))return;
     
     setPelerins([]);
@@ -99,7 +101,6 @@ function App(){
     alert('✅ Toutes les données ont été réinitialisées !\n\nVous pouvez maintenant commencer un nouveau voyage.');
   };
 
-  // NOUVELLE FONCTIONNALITÉ : Export vers Cloud
   const exportToCloud=()=>{
     const data={
       pelerins,
@@ -114,7 +115,6 @@ function App(){
     setCloudModal('export');
   };
 
-  // NOUVELLE FONCTIONNALITÉ : Import depuis Cloud
   const importFromCloud=()=>{
     if(!cloudCode.trim()){alert('❌ Veuillez coller un code de sauvegarde');return}
     try{
@@ -137,7 +137,6 @@ function App(){
     }
   };
 
-  // NOUVELLE FONCTIONNALITÉ : Télécharger backup JSON
   const downloadBackup=()=>{
     const data={
       pelerins,
@@ -156,7 +155,6 @@ function App(){
     URL.revokeObjectURL(url);
   };
 
-  // NOUVELLE FONCTIONNALITÉ : Restaurer backup JSON
   const restoreBackup=f=>{
     if(!f)return;
     const reader=new FileReader();
@@ -194,7 +192,6 @@ function App(){
     }
   };
 
-  // FONCTIONNALITÉS DE LOCALISATION
   const getMyLocation=()=>{
     setLocationLoading(true);
     if(!navigator.geolocation){
@@ -265,7 +262,7 @@ function App(){
 
   const importData=data=>{
     const n=s=>s?s.toString().trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,""):'';
-    const imp=data.map(r=>{const o={};Object.keys(r).forEach(k=>o[n(k)]=r[k]);return{id:Date.now()+Math.random(),nom:o.nom||'',prenom:o.prenom||'',sexe:o.sexe?.toString().charAt(0).toUpperCase()==='F'?'F':o.sexe?.toString().charAt(0).toUpperCase()==='M'?'M':'',dateNaissance:o['date naissance']||o.naissance||'',nomFamille:o.famille||'',lienFamilial:o.lien||'',whatsapp:o.whatsapp||o.telephone||'',chambreMedine:o['chambre medine']||o.medine||'',chambreMakkah:o['chambre makkah']||o.makkah||'',hotelMedine:o['hotel medine']||'',hotelMakkah:o['hotel makkah']||'',commentaire:o.commentaire||''}}).filter(p=>p.nom&&p.prenom);
+    const imp=data.map(r=>{const o={};Object.keys(r).forEach(k=>o[n(k)]=r[k]);return{id:Date.now()+Math.random(),nom:o.nom||'',prenom:o.prenom||'',sexe:o.sexe?.toString().charAt(0).toUpperCase()==='F'?'F':o.sexe?.toString().charAt(0).toUpperCase()==='M'?'M':'',dateNaissance:o['date naissance']||o.naissance||'',nomFamille:o.famille||'',lienFamilial:o.lien||'',whatsapp:o.whatsapp||o.telephone||'',chambreMedine:o['chambre medine']||o.medine||'',chambreMakkah:o['chambre makkah']||o.makkah||'',hotelMedine:o['hotel medine']||'',hotelMakkah:o['hotel makkah']||'',commentaire:o.commentaire||'',documents:{photo:'',passeport:'',visa:''}}}).filter(p=>p.nom&&p.prenom);
     if(!imp.length){alert('Aucune donnée');return}
     save([...pelerins,...imp]);setModal(null);alert('✅ '+imp.length+' importé(s)');
   };
@@ -392,22 +389,34 @@ function App(){
       doc.setDrawColor(200,200,200);
       doc.rect(x,y,55,40);
       
-      doc.setFillColor(p.sexe==='F'?236:59,p.sexe==='F'?72:130,p.sexe==='F'?153:246);
-      doc.circle(x+15,y+15,10,'F');
+      if(p.documents?.photo){
+        try{
+          doc.addImage(p.documents.photo,'JPEG',x+2,y+2,20,20);
+        }catch(e){
+          doc.setFillColor(p.sexe==='F'?236:59,p.sexe==='F'?72:130,p.sexe==='F'?153:246);
+          doc.circle(x+12,y+12,10,'F');
+        }
+      }else{
+        doc.setFillColor(p.sexe==='F'?236:59,p.sexe==='F'?72:130,p.sexe==='F'?153:246);
+        doc.circle(x+12,y+12,10,'F');
+      }
+      
       doc.setTextColor(255,255,255);
       doc.setFontSize(12);
-      doc.text((p.prenom?.[0]||'')+(p.nom?.[0]||''),x+15,y+18,{align:'center'});
+      if(!p.documents?.photo){
+        doc.text((p.prenom?.[0]||'')+(p.nom?.[0]||''),x+12,y+15,{align:'center'});
+      }
       
       doc.setTextColor(0,0,0);
       doc.setFontSize(8);
-      doc.text(p.prenom||'',x+30,y+10);
+      doc.text(p.prenom||'',x+27,y+10);
       doc.setFontSize(9);
-      doc.text(p.nom?.toUpperCase()||'',x+30,y+16);
+      doc.text(p.nom?.toUpperCase()||'',x+27,y+16);
       doc.setFontSize(7);
       doc.setTextColor(100,100,100);
-      if(p.chambreMedine)doc.text('Med: '+p.chambreMedine,x+30,y+22);
-      if(p.chambreMakkah)doc.text('Mak: '+p.chambreMakkah,x+30,y+27);
-      if(p.nomFamille)doc.text('Fam: '+p.nomFamille,x+30,y+32);
+      if(p.chambreMedine)doc.text('Med: '+p.chambreMedine,x+27,y+22);
+      if(p.chambreMakkah)doc.text('Mak: '+p.chambreMakkah,x+27,y+27);
+      if(p.nomFamille)doc.text('Fam: '+p.nomFamille,x+27,y+32);
       
       x+=60;
     });
@@ -429,6 +438,13 @@ function App(){
   const familles=[...new Set(pelerins.map(p=>p.nomFamille).filter(Boolean))];
   const stats={total:pelerins.length,fam:familles.length,h:pelerins.filter(p=>p.sexe==='M').length,f:pelerins.filter(p=>p.sexe==='F').length};
 
+  const docsStats={
+    photo:pelerins.filter(p=>p.documents?.photo).length,
+    passeport:pelerins.filter(p=>p.documents?.passeport).length,
+    visa:pelerins.filter(p=>p.documents?.visa).length,
+    complet:pelerins.filter(p=>p.documents?.photo&&p.documents?.passeport&&p.documents?.visa).length
+  };
+
   return(
     <div className="min-h-screen bg-gray-100 pb-20">
       <div className="bg-green-600 text-white px-4 py-3 sticky top-0 z-30 flex items-center justify-between">
@@ -448,7 +464,6 @@ function App(){
             <button onClick={()=>{setFilters({...filters,sexe:'F'});setView('list')}} className="bg-pink-500 text-white rounded-xl p-4 text-left active:scale-95 transition-transform"><div className="text-2xl font-bold">{stats.f}</div><div className="text-xs">Femmes</div></button>
           </div>
 
-          {/* NOUVELLE SECTION : Sauvegarde Cloud */}
           <div className="bg-gradient-to-br from-blue-500 to-purple-600 text-white rounded-xl p-4 shadow-lg">
             <div className="font-bold text-sm mb-3">☁️ Sauvegarde Cloud</div>
             <div className="grid grid-cols-2 gap-2">
@@ -524,11 +539,19 @@ function App(){
           </div>}
           {filtered.map(p=><div key={p.id} className="bg-white rounded-xl p-3 shadow-sm flex justify-between items-center">
             <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${p.sexe==='F'?'bg-pink-500':'bg-blue-500'}`}>{p.prenom?.[0]}{p.nom?.[0]}</div>
+              {p.documents?.photo?
+                <img src={p.documents.photo} className="w-10 h-10 rounded-full object-cover" onClick={()=>setImagePreview(p.documents.photo)}/>:
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${p.sexe==='F'?'bg-pink-500':'bg-blue-500'}`}>{p.prenom?.[0]}{p.nom?.[0]}</div>
+              }
               <div>
                 <div className="font-bold text-sm">{p.prenom} {p.nom} {age(p.dateNaissance)&&<span className="font-normal text-gray-500">({age(p.dateNaissance)})</span>}</div>
                 <div className="text-xs text-gray-500">{p.chambreMedine&&`Med:${p.chambreMedine}`} {p.chambreMakkah&&`Mak:${p.chambreMakkah}`}</div>
                 {p.commentaire&&<div className="text-xs text-orange-600">⚠️ {p.commentaire}</div>}
+                <div className="flex gap-1 mt-1">
+                  {p.documents?.photo&&<span className="text-xs bg-green-100 text-green-700 px-1 rounded">📸</span>}
+                  {p.documents?.passeport&&<span className="text-xs bg-blue-100 text-blue-700 px-1 rounded">🛂</span>}
+                  {p.documents?.visa&&<span className="text-xs bg-purple-100 text-purple-700 px-1 rounded">🇸🇦</span>}
+                </div>
               </div>
             </div>
             <div className="flex">
@@ -539,6 +562,90 @@ function App(){
             </div>
           </div>)}
           {!filtered.length&&<div className="text-center py-10 text-gray-400">Aucun pèlerin</div>}
+        </>}
+
+        {view==='documents'&&<>
+          <div className="font-bold mb-4">📄 Documents</div>
+          
+          <div className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white rounded-xl p-4 shadow-lg mb-4">
+            <div className="text-sm mb-2">Progression globale</div>
+            <div className="flex justify-between text-xs mb-1">
+              <span>{docsStats.complet} complets</span>
+              <span>{Math.round((docsStats.complet/Math.max(pelerins.length,1))*100)}%</span>
+            </div>
+            <div className="w-full bg-white/20 rounded-full h-3 mb-3">
+              <div className="bg-white h-3 rounded-full" style={{width:`${Math.round((docsStats.complet/Math.max(pelerins.length,1))*100)}%`}}></div>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-xs">
+              <div className="bg-white/20 backdrop-blur rounded-lg p-2 text-center">
+                <div className="text-2xl">📸</div>
+                <div className="font-bold">{docsStats.photo}/{pelerins.length}</div>
+                <div className="opacity-80">Photos</div>
+              </div>
+              <div className="bg-white/20 backdrop-blur rounded-lg p-2 text-center">
+                <div className="text-2xl">🛂</div>
+                <div className="font-bold">{docsStats.passeport}/{pelerins.length}</div>
+                <div className="opacity-80">Passeports</div>
+              </div>
+              <div className="bg-white/20 backdrop-blur rounded-lg p-2 text-center">
+                <div className="text-2xl">🇸🇦</div>
+                <div className="font-bold">{docsStats.visa}/{pelerins.length}</div>
+                <div className="opacity-80">Visas</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4">
+            <div className="flex gap-2">
+              <span className="text-xl">⚠️</span>
+              <div className="text-sm text-amber-800">
+                <div className="font-bold mb-1">Données sensibles</div>
+                <div className="text-xs">Les documents sont stockés localement sur votre appareil. Pensez à les supprimer après le voyage pour protéger les données personnelles.</div>
+              </div>
+            </div>
+          </div>
+
+          {pelerins.map(p=>{
+            const hasAll=p.documents?.photo&&p.documents?.passeport&&p.documents?.visa;
+            return<div key={p.id} className={`bg-white rounded-xl p-3 shadow-sm mb-3 border-2 ${hasAll?'border-green-500':'border-orange-400'}`}>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  {p.documents?.photo?
+                    <img src={p.documents.photo} className="w-10 h-10 rounded-full object-cover" onClick={()=>setImagePreview(p.documents.photo)}/>:
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${p.sexe==='F'?'bg-pink-500':'bg-blue-500'}`}>{p.prenom?.[0]}{p.nom?.[0]}</div>
+                  }
+                  <div>
+                    <div className="font-bold text-sm">{p.prenom} {p.nom}</div>
+                    <div className="text-xs text-gray-500">{hasAll?'✅ Complet':'⚠️ Incomplet'}</div>
+                  </div>
+                </div>
+                <button onClick={()=>{setEditId(p.id);setView('form')}} className="bg-blue-100 text-blue-700 px-3 py-1 rounded-lg text-sm">Modifier</button>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div className={`p-2 rounded-lg text-center ${p.documents?.photo?'bg-green-50':'bg-gray-50'}`}>
+                  <div className="text-2xl mb-1">📸</div>
+                  {p.documents?.photo?
+                    <img src={p.documents.photo} className="doc-thumb mx-auto mb-1" onClick={()=>setImagePreview(p.documents.photo)}/>:
+                    <div className="text-xs text-gray-400">Non ajoutée</div>
+                  }
+                </div>
+                <div className={`p-2 rounded-lg text-center ${p.documents?.passeport?'bg-blue-50':'bg-gray-50'}`}>
+                  <div className="text-2xl mb-1">🛂</div>
+                  {p.documents?.passeport?
+                    <img src={p.documents.passeport} className="doc-thumb mx-auto mb-1" onClick={()=>setImagePreview(p.documents.passeport)}/>:
+                    <div className="text-xs text-gray-400">Non ajouté</div>
+                  }
+                </div>
+                <div className={`p-2 rounded-lg text-center ${p.documents?.visa?'bg-purple-50':'bg-gray-50'}`}>
+                  <div className="text-2xl mb-1">🇸🇦</div>
+                  {p.documents?.visa?
+                    <img src={p.documents.visa} className="doc-thumb mx-auto mb-1" onClick={()=>setImagePreview(p.documents.visa)}/>:
+                    <div className="text-xs text-gray-400">Non ajouté</div>
+                  }
+                </div>
+              </div>
+            </div>
+          })}
         </>}
 
         {view==='chambres'&&<>
@@ -600,7 +707,10 @@ function App(){
                     <div className="p-3 space-y-2">
                       {ch.occupants.map(p=><div key={p.id} className="flex items-center justify-between bg-gray-50 rounded-lg p-2">
                         <div className="flex items-center gap-2">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold ${p.sexe==='F'?'bg-pink-500':'bg-blue-500'}`}>{p.prenom?.[0]}{p.nom?.[0]}</div>
+                          {p.documents?.photo?
+                            <img src={p.documents.photo} className="w-8 h-8 rounded-full object-cover"/>:
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold ${p.sexe==='F'?'bg-pink-500':'bg-blue-500'}`}>{p.prenom?.[0]}{p.nom?.[0]}</div>
+                          }
                           <div>
                             <div className="text-sm font-medium">{p.prenom} {p.nom}</div>
                             {p.commentaire&&<div className="text-xs text-orange-600">⚠️ {p.commentaire}</div>}
@@ -621,7 +731,13 @@ function App(){
         {view==='appel'&&<>
           <div className="bg-white rounded-xl p-3 shadow-sm flex justify-between"><span className="font-bold">✅ Appel</span><span className="text-green-600 font-bold">{Object.values(appel).filter(Boolean).length}/{pelerins.length}</span></div>
           {pelerins.map(p=><div key={p.id} onClick={()=>setAppel({...appel,[p.id]:!appel[p.id]})} className={`bg-white rounded-xl p-3 shadow-sm flex justify-between ${appel[p.id]?'border-2 border-green-500':''}`}>
-            <div className="flex items-center gap-3"><div className={`w-8 h-8 rounded-full flex items-center justify-center ${appel[p.id]?'bg-green-500 text-white':'bg-gray-200'}`}>{p.prenom?.[0]}{p.nom?.[0]}</div><span>{p.prenom} {p.nom}</span></div>
+            <div className="flex items-center gap-3">
+              {p.documents?.photo?
+                <img src={p.documents.photo} className={`w-8 h-8 rounded-full object-cover ${appel[p.id]?'':'opacity-50'}`}/>:
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${appel[p.id]?'bg-green-500 text-white':'bg-gray-200'}`}>{p.prenom?.[0]}{p.nom?.[0]}</div>
+              }
+              <span>{p.prenom} {p.nom}</span>
+            </div>
             {appel[p.id]?<span className="text-green-600">✓</span>:<span className="w-5 h-5 border-2 rounded-full"/>}
           </div>)}
           <button onClick={()=>setAppel({})} className="w-full bg-gray-500 text-white py-2 rounded-xl">Réinitialiser</button>
@@ -629,13 +745,12 @@ function App(){
 
         {view==='familles'&&<>
           <div className="font-bold">👨‍👩‍👧 Familles ({familles.length})</div>
-          {familles.map(f=>{const m=pelerins.filter(p=>p.nomFamille===f);return<div key={f} className="bg-white rounded-xl shadow-sm overflow-hidden mb-3"><div className="bg-purple-600 text-white px-4 py-2 font-bold">Famille {f} ({m.length})</div><div className="p-3">{m.map(x=><div key={x.id} className="flex items-center gap-2 py-1"><div className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center text-white text-xs">{x.prenom?.[0]}</div><span className="text-sm">{x.prenom} {x.nom}</span>{x.lienFamilial&&<span className="text-xs text-gray-500">({x.lienFamilial})</span>}</div>)}</div></div>})}
+          {familles.map(f=>{const m=pelerins.filter(p=>p.nomFamille===f);return<div key={f} className="bg-white rounded-xl shadow-sm overflow-hidden mb-3"><div className="bg-purple-600 text-white px-4 py-2 font-bold">Famille {f} ({m.length})</div><div className="p-3">{m.map(x=><div key={x.id} className="flex items-center gap-2 py-1">{x.documents?.photo?<img src={x.documents.photo} className="w-6 h-6 rounded-full object-cover"/>:<div className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center text-white text-xs">{x.prenom?.[0]}</div>}<span className="text-sm">{x.prenom} {x.nom}</span>{x.lienFamilial&&<span className="text-xs text-gray-500">({x.lienFamilial})</span>}</div>)}</div></div>})}
         </>}
 
         {view==='localisation'&&<>
           <div className="font-bold mb-4">📍 Localisation GPS</div>
           
-          {/* Ma position */}
           <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl p-4 shadow-lg mb-4">
             <div className="flex items-center gap-2 mb-3">
               <span className="text-2xl">🧭</span>
@@ -663,7 +778,6 @@ function App(){
             </>}
           </div>
 
-          {/* Info */}
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4">
             <div className="flex gap-2">
               <span className="text-xl">💡</span>
@@ -678,11 +792,13 @@ function App(){
             </div>
           </div>
 
-          {/* Liste des pèlerins */}
           <div className="font-bold text-sm mb-2">👥 Demander la position d'un pèlerin</div>
           {pelerins.filter(p=>p.whatsapp).length?pelerins.filter(p=>p.whatsapp).map(p=><div key={p.id} className="bg-white rounded-xl p-3 shadow-sm mb-2 flex justify-between items-center">
             <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${p.sexe==='F'?'bg-pink-500':'bg-blue-500'}`}>{p.prenom?.[0]}{p.nom?.[0]}</div>
+              {p.documents?.photo?
+                <img src={p.documents.photo} className="w-10 h-10 rounded-full object-cover"/>:
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${p.sexe==='F'?'bg-pink-500':'bg-blue-500'}`}>{p.prenom?.[0]}{p.nom?.[0]}</div>
+              }
               <div>
                 <div className="font-bold text-sm">{p.prenom} {p.nom}</div>
                 <div className="text-xs text-gray-500">{p.whatsapp}</div>
@@ -803,13 +919,17 @@ function App(){
         </>}
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t flex z-30">
-        {[['🏠','dashboard'],['👥','list'],['🏨','chambres'],['✅','appel'],['📍','localisation'],['🤲','spirituel'],['👨‍👩‍👧','familles']].map(([e,v])=><button key={v} onClick={()=>setView(v)} className={`flex-1 py-3 text-sm ${view===v?'text-green-600 border-t-2 border-green-600':'text-gray-500'}`}>{e}</button>)}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t flex z-30 overflow-x-auto">
+        {[['🏠','dashboard'],['👥','list'],['📄','documents'],['🏨','chambres'],['✅','appel'],['📍','localisation'],['🤲','spirituel'],['👨‍👩‍👧','familles']].map(([e,v])=><button key={v} onClick={()=>setView(v)} className={`flex-none px-3 py-3 text-xs ${view===v?'text-green-600 border-t-2 border-green-600':'text-gray-500'}`}>{e}</button>)}
       </div>
 
       <button onClick={()=>setModal('sos')} className="sos-btn fixed bottom-20 right-4 w-14 h-14 bg-red-600 text-white rounded-full shadow-lg flex items-center justify-center text-2xl z-40">🆘</button>
 
-      {/* Modal Export Cloud */}
+      {imagePreview&&<div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4" onClick={()=>setImagePreview(null)}>
+        <img src={imagePreview} className="doc-preview" onClick={e=>e.stopPropagation()}/>
+        <button onClick={()=>setImagePreview(null)} className="absolute top-4 right-4 bg-white text-black w-10 h-10 rounded-full">✕</button>
+      </div>}
+
       {cloudModal==='export'&&<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={()=>setCloudModal(null)}><div className="bg-white rounded-2xl p-5 w-full max-w-md" onClick={e=>e.stopPropagation()}>
         <div className="font-bold text-lg mb-3">📤 Code de sauvegarde</div>
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
@@ -823,7 +943,6 @@ function App(){
         <div className="text-xs text-gray-500 mt-3">💡 Conservez ce code en lieu sûr. Vous pourrez l'utiliser pour restaurer vos données sur n'importe quel appareil.</div>
       </div></div>}
 
-      {/* Modal Import Cloud */}
       {cloudModal==='import'&&<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={()=>setCloudModal(null)}><div className="bg-white rounded-2xl p-5 w-full max-w-md" onClick={e=>e.stopPropagation()}>
         <div className="font-bold text-lg mb-3">📥 Restaurer depuis le cloud</div>
         <div className="mb-3">
@@ -917,33 +1036,158 @@ function App(){
 }
 
 function Form({p,hotels,onSave,onCancel}){
-  const [f,setF]=useState({nom:p?.nom||'',prenom:p?.prenom||'',sexe:p?.sexe||'',dateNaissance:p?.dateNaissance||'',nomFamille:p?.nomFamille||'',lienFamilial:p?.lienFamilial||'',whatsapp:p?.whatsapp||'',chambreMedine:p?.chambreMedine||'',typeChambreMedine:p?.typeChambreMedine||'',hotelMedine:p?.hotelMedine||'',chambreMakkah:p?.chambreMakkah||'',typeChambreMakkah:p?.typeChambreMakkah||'',hotelMakkah:p?.hotelMakkah||'',commentaire:p?.commentaire||''});
+  const [f,setF]=useState({
+    nom:p?.nom||'',
+    prenom:p?.prenom||'',
+    sexe:p?.sexe||'',
+    dateNaissance:p?.dateNaissance||'',
+    nomFamille:p?.nomFamille||'',
+    lienFamilial:p?.lienFamilial||'',
+    whatsapp:p?.whatsapp||'',
+    chambreMedine:p?.chambreMedine||'',
+    typeChambreMedine:p?.typeChambreMedine||'',
+    hotelMedine:p?.hotelMedine||'',
+    chambreMakkah:p?.chambreMakkah||'',
+    typeChambreMakkah:p?.typeChambreMakkah||'',
+    hotelMakkah:p?.hotelMakkah||'',
+    commentaire:p?.commentaire||'',
+    documents:p?.documents||{photo:'',passeport:'',visa:''}
+  });
+
+  const handleImage=(type,file)=>{
+    if(!file)return;
+    if(!file.type.startsWith('image/')){alert('Fichier invalide');return}
+    
+    const reader=new FileReader();
+    reader.onload=e=>{
+      const img=new Image();
+      img.onload=()=>{
+        const canvas=document.createElement('canvas');
+        let w=img.width,h=img.height;
+        const max=800;
+        if(w>max||h>max){
+          if(w>h){h=h*(max/w);w=max}
+          else{w=w*(max/h);h=max}
+        }
+        canvas.width=w;canvas.height=h;
+        const ctx=canvas.getContext('2d');
+        ctx.drawImage(img,0,0,w,h);
+        const compressed=canvas.toDataURL('image/jpeg',0.7);
+        setF({...f,documents:{...f.documents,[type]:compressed}});
+      };
+      img.src=e.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removeDoc=type=>{
+    if(!confirm('Supprimer ce document ?'))return;
+    setF({...f,documents:{...f.documents,[type]:''}});
+  };
+
   return(
     <div className="bg-white rounded-xl p-4 shadow-sm">
       <div className="font-bold mb-4">{p?'✏️ Modifier':'➕ Ajouter'}</div>
       <div className="space-y-3">
-        <div className="grid grid-cols-2 gap-2"><input placeholder="Nom*" value={f.nom} onChange={e=>setF({...f,nom:e.target.value})} className="border rounded-xl px-3 py-2"/><input placeholder="Prénom*" value={f.prenom} onChange={e=>setF({...f,prenom:e.target.value})} className="border rounded-xl px-3 py-2"/></div>
-        <div className="grid grid-cols-2 gap-2"><select value={f.sexe} onChange={e=>setF({...f,sexe:e.target.value})} className="border rounded-xl px-3 py-2"><option value="">Sexe</option><option value="M">Homme</option><option value="F">Femme</option></select><input type="date" value={f.dateNaissance} onChange={e=>setF({...f,dateNaissance:e.target.value})} className="border rounded-xl px-3 py-2"/></div>
-        <div className="grid grid-cols-2 gap-2"><input placeholder="Famille" value={f.nomFamille} onChange={e=>setF({...f,nomFamille:e.target.value})} className="border rounded-xl px-3 py-2"/><select value={f.lienFamilial} onChange={e=>setF({...f,lienFamilial:e.target.value})} className="border rounded-xl px-3 py-2"><option value="">Lien</option><option>Époux</option><option>Épouse</option><option>Père</option><option>Mère</option><option>Fils</option><option>Fille</option></select></div>
+        <div className="grid grid-cols-2 gap-2">
+          <input placeholder="Nom*" value={f.nom} onChange={e=>setF({...f,nom:e.target.value})} className="border rounded-xl px-3 py-2"/>
+          <input placeholder="Prénom*" value={f.prenom} onChange={e=>setF({...f,prenom:e.target.value})} className="border rounded-xl px-3 py-2"/>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <select value={f.sexe} onChange={e=>setF({...f,sexe:e.target.value})} className="border rounded-xl px-3 py-2">
+            <option value="">Sexe</option>
+            <option value="M">Homme</option>
+            <option value="F">Femme</option>
+          </select>
+          <input type="date" value={f.dateNaissance} onChange={e=>setF({...f,dateNaissance:e.target.value})} className="border rounded-xl px-3 py-2"/>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <input placeholder="Famille" value={f.nomFamille} onChange={e=>setF({...f,nomFamille:e.target.value})} className="border rounded-xl px-3 py-2"/>
+          <select value={f.lienFamilial} onChange={e=>setF({...f,lienFamilial:e.target.value})} className="border rounded-xl px-3 py-2">
+            <option value="">Lien</option>
+            <option>Époux</option>
+            <option>Épouse</option>
+            <option>Père</option>
+            <option>Mère</option>
+            <option>Fils</option>
+            <option>Fille</option>
+          </select>
+        </div>
         <input placeholder="WhatsApp" value={f.whatsapp} onChange={e=>setF({...f,whatsapp:e.target.value})} className="w-full border rounded-xl px-3 py-2"/>
         
-        <div className="font-bold text-sm pt-2">🏨 Médine</div>
+        <div className="font-bold text-sm pt-2 border-t">📄 Documents</div>
+        <div className="grid grid-cols-3 gap-2">
+          <div className="text-center">
+            <div className="text-xs mb-1">📸 Photo</div>
+            {f.documents.photo?
+              <div className="relative">
+                <img src={f.documents.photo} className="doc-thumb mx-auto mb-1"/>
+                <button onClick={()=>removeDoc('photo')} className="absolute -top-1 -right-1 bg-red-500 text-white w-5 h-5 rounded-full text-xs">×</button>
+              </div>:
+              <label className="block w-full bg-green-50 border-2 border-dashed border-green-300 rounded-lg p-2 cursor-pointer">
+                <div className="text-2xl">+</div>
+                <input type="file" accept="image/*" capture="user" onChange={e=>e.target.files[0]&&handleImage('photo',e.target.files[0])} className="hidden"/>
+              </label>
+            }
+          </div>
+          <div className="text-center">
+            <div className="text-xs mb-1">🛂 Passeport</div>
+            {f.documents.passeport?
+              <div className="relative">
+                <img src={f.documents.passeport} className="doc-thumb mx-auto mb-1"/>
+                <button onClick={()=>removeDoc('passeport')} className="absolute -top-1 -right-1 bg-red-500 text-white w-5 h-5 rounded-full text-xs">×</button>
+              </div>:
+              <label className="block w-full bg-blue-50 border-2 border-dashed border-blue-300 rounded-lg p-2 cursor-pointer">
+                <div className="text-2xl">+</div>
+                <input type="file" accept="image/*" onChange={e=>e.target.files[0]&&handleImage('passeport',e.target.files[0])} className="hidden"/>
+              </label>
+            }
+          </div>
+          <div className="text-center">
+            <div className="text-xs mb-1">🇸🇦 Visa</div>
+            {f.documents.visa?
+              <div className="relative">
+                <img src={f.documents.visa} className="doc-thumb mx-auto mb-1"/>
+                <button onClick={()=>removeDoc('visa')} className="absolute -top-1 -right-1 bg-red-500 text-white w-5 h-5 rounded-full text-xs">×</button>
+              </div>:
+              <label className="block w-full bg-purple-50 border-2 border-dashed border-purple-300 rounded-lg p-2 cursor-pointer">
+                <div className="text-2xl">+</div>
+                <input type="file" accept="image/*" onChange={e=>e.target.files[0]&&handleImage('visa',e.target.files[0])} className="hidden"/>
+              </label>
+            }
+          </div>
+        </div>
+        
+        <div className="font-bold text-sm pt-2 border-t">🏨 Médine</div>
         <div className="grid grid-cols-3 gap-2">
           <input placeholder="Hôtel" value={f.hotelMedine} onChange={e=>setF({...f,hotelMedine:e.target.value})} className="border rounded-xl px-3 py-2"/>
           <input placeholder="N° Chambre" value={f.chambreMedine} onChange={e=>setF({...f,chambreMedine:e.target.value})} className="border rounded-xl px-3 py-2"/>
-          <select value={f.typeChambreMedine} onChange={e=>setF({...f,typeChambreMedine:e.target.value})} className="border rounded-xl px-3 py-2"><option value="">Type</option><option>Duo</option><option>Triple</option><option>Quadruple</option></select>
+          <select value={f.typeChambreMedine} onChange={e=>setF({...f,typeChambreMedine:e.target.value})} className="border rounded-xl px-3 py-2">
+            <option value="">Type</option>
+            <option>Duo</option>
+            <option>Triple</option>
+            <option>Quadruple</option>
+          </select>
         </div>
         
         <div className="font-bold text-sm pt-2">🕋 Makkah</div>
         <div className="grid grid-cols-3 gap-2">
           <input placeholder="Hôtel" value={f.hotelMakkah} onChange={e=>setF({...f,hotelMakkah:e.target.value})} className="border rounded-xl px-3 py-2"/>
           <input placeholder="N° Chambre" value={f.chambreMakkah} onChange={e=>setF({...f,chambreMakkah:e.target.value})} className="border rounded-xl px-3 py-2"/>
-          <select value={f.typeChambreMakkah} onChange={e=>setF({...f,typeChambreMakkah:e.target.value})} className="border rounded-xl px-3 py-2"><option value="">Type</option><option>Duo</option><option>Triple</option><option>Quadruple</option></select>
+          <select value={f.typeChambreMakkah} onChange={e=>setF({...f,typeChambreMakkah:e.target.value})} className="border rounded-xl px-3 py-2">
+            <option value="">Type</option>
+            <option>Duo</option>
+            <option>Triple</option>
+            <option>Quadruple</option>
+          </select>
         </div>
         
         <textarea placeholder="Commentaire santé" value={f.commentaire} onChange={e=>setF({...f,commentaire:e.target.value})} className="w-full border rounded-xl px-3 py-2" rows={2}/>
       </div>
-      <div className="flex gap-3 mt-4"><button onClick={onCancel} className="flex-1 border py-2 rounded-xl">Annuler</button><button onClick={()=>{if(!f.nom||!f.prenom){alert('Nom et prénom requis');return}onSave(f)}} className="flex-1 bg-green-600 text-white py-2 rounded-xl">💾 Sauver</button></div>
+      <div className="flex gap-3 mt-4">
+        <button onClick={onCancel} className="flex-1 border py-2 rounded-xl">Annuler</button>
+        <button onClick={()=>{if(!f.nom||!f.prenom){alert('Nom et prénom requis');return}onSave(f)}} className="flex-1 bg-green-600 text-white py-2 rounded-xl">💾 Sauver</button>
+      </div>
     </div>
   );
 }
